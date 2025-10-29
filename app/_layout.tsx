@@ -1,24 +1,37 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { AuthProvider } from '../src/context/AuthContext';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <AuthProvider>
       <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen 
+          name="products/[id]" 
+          options={{ 
+            title: 'Product Detail',
+            headerBackTitle: 'Back'
+          }} 
+        />
+        <Stack.Screen 
+          name="cart/checkout" 
+          options={{ title: 'Checkout' }} 
+        />
+        <Stack.Screen 
+          name="orders/[id]" 
+          options={{ title: 'Order Detail' }} 
+        />
+        <Stack.Screen 
+          name="orders/tracking" 
+          options={{ title: 'Track Order' }} 
+        />
+        <Stack.Screen 
+          name="payment/[orderId]" 
+          options={{ title: 'Payment' }} 
+        />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    </AuthProvider>
   );
 }
