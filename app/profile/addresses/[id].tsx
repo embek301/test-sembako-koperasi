@@ -14,11 +14,14 @@ import {
 import { addressAPI } from '../../../src/api/apiClient';
 
 interface AddressForm {
-  name: string;
+  recipient_name: string;
   phone: string;
   address: string;
+  province: string;
   city: string;
+  district: string;
   postal_code: string;
+  label: string;
   is_default: boolean;
 }
 
@@ -28,11 +31,14 @@ export default function AddressDetailScreen() {
   
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<AddressForm>({
-    name: '',
+    recipient_name: '',
     phone: '',
     address: '',
+    province: '',
     city: '',
+    district: '',
     postal_code: '',
+    label: 'home',
     is_default: false,
   });
 
@@ -47,11 +53,14 @@ export default function AddressDetailScreen() {
       const response = await addressAPI.getById(Number(id));
       const addressData = response.data.data || response.data;
       setFormData({
-        name: addressData.name || '',
+        recipient_name: addressData.recipient_name || '',
         phone: addressData.phone || '',
         address: addressData.address || '',
+        province: addressData.province || '',
         city: addressData.city || '',
+        district: addressData.district || '',
         postal_code: addressData.postal_code || '',
+        label: addressData.label || 'home',
         is_default: addressData.is_default || false,
       });
     } catch (error) {
@@ -61,8 +70,33 @@ export default function AddressDetailScreen() {
   };
 
   const handleSaveAddress = async () => {
-    if (!formData.name || !formData.phone || !formData.address || !formData.city || !formData.postal_code) {
-      Alert.alert('Error', 'Semua field harus diisi');
+    // Validation
+    if (!formData.recipient_name.trim()) {
+      Alert.alert('Error', 'Nama penerima harus diisi');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      Alert.alert('Error', 'Nomor telepon harus diisi');
+      return;
+    }
+    if (!formData.address.trim()) {
+      Alert.alert('Error', 'Alamat harus diisi');
+      return;
+    }
+    if (!formData.province.trim()) {
+      Alert.alert('Error', 'Provinsi harus diisi');
+      return;
+    }
+    if (!formData.city.trim()) {
+      Alert.alert('Error', 'Kota harus diisi');
+      return;
+    }
+    if (!formData.district.trim()) {
+      Alert.alert('Error', 'Kecamatan harus diisi');
+      return;
+    }
+    if (!formData.postal_code.trim()) {
+      Alert.alert('Error', 'Kode pos harus diisi');
       return;
     }
 
@@ -78,73 +112,135 @@ export default function AddressDetailScreen() {
       router.back();
     } catch (error: any) {
       console.error('Error saving address:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Gagal menyimpan alamat'
-      );
+      
+      // Show validation errors
+      if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const errorMessages = Object.entries(errors)
+          .map(([field, messages]: [string, any]) => `${field}: ${messages.join(', ')}`)
+          .join('\n');
+        Alert.alert('Validation Error', errorMessages);
+      } else {
+        Alert.alert(
+          'Error',
+          error.response?.data?.message || 'Gagal menyimpan alamat'
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const labelOptions = [
+    { value: 'home', label: 'Rumah' },
+    { value: 'office', label: 'Kantor' },
+    { value: 'apartment', label: 'Apartemen' },
+    { value: 'other', label: 'Lainnya' },
+  ];
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nama Penerima</Text>
+          <Text style={styles.label}>Label Alamat *</Text>
+          <View style={styles.labelButtons}>
+            {labelOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.labelButton,
+                  formData.label === option.value && styles.labelButtonActive,
+                ]}
+                onPress={() => setFormData({ ...formData, label: option.value })}
+              >
+                <Text
+                  style={[
+                    styles.labelButtonText,
+                    formData.label === option.value && styles.labelButtonTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Nama Penerima *</Text>
           <TextInput
             style={styles.input}
-            value={formData.name}
-            onChangeText={(text) => setFormData({ ...formData, name: text })}
+            value={formData.recipient_name}
+            onChangeText={(text) => setFormData({ ...formData, recipient_name: text })}
             placeholder="Masukkan nama penerima"
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nomor Telepon</Text>
+          <Text style={styles.label}>Nomor Telepon *</Text>
           <TextInput
             style={styles.input}
             value={formData.phone}
             onChangeText={(text) => setFormData({ ...formData, phone: text })}
-            placeholder="Masukkan nomor telepon"
+            placeholder="08xxxxxxxxxx"
             keyboardType="phone-pad"
+            maxLength={13}
           />
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Alamat Lengkap</Text>
+          <Text style={styles.label}>Alamat Lengkap *</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={formData.address}
             onChangeText={(text) => setFormData({ ...formData, address: text })}
-            placeholder="Masukkan alamat lengkap"
+            placeholder="Jalan, nomor rumah, RT/RW, dll"
             multiline
             numberOfLines={3}
             textAlignVertical="top"
           />
         </View>
 
-        <View style={styles.row}>
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.label}>Kota</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.city}
-              onChangeText={(text) => setFormData({ ...formData, city: text })}
-              placeholder="Kota"
-            />
-          </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Provinsi *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.province}
+            onChangeText={(text) => setFormData({ ...formData, province: text })}
+            placeholder="Contoh: Jawa Timur"
+          />
+        </View>
 
-          <View style={[styles.inputGroup, styles.flex1]}>
-            <Text style={styles.label}>Kode Pos</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.postal_code}
-              onChangeText={(text) => setFormData({ ...formData, postal_code: text })}
-              placeholder="Kode Pos"
-              keyboardType="numeric"
-            />
-          </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Kota/Kabupaten *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.city}
+            onChangeText={(text) => setFormData({ ...formData, city: text })}
+            placeholder="Contoh: Surabaya"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Kecamatan *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.district}
+            onChangeText={(text) => setFormData({ ...formData, district: text })}
+            placeholder="Contoh: Wonokromo"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Kode Pos *</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.postal_code}
+            onChangeText={(text) => setFormData({ ...formData, postal_code: text })}
+            placeholder="Contoh: 60243"
+            keyboardType="numeric"
+            maxLength={5}
+          />
         </View>
 
         <TouchableOpacity
@@ -212,12 +308,30 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
   },
-  row: {
+  labelButtons: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  flex1: {
-    flex: 1,
+  labelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    backgroundColor: '#fff',
+  },
+  labelButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  labelButtonText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  labelButtonTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   },
   checkboxContainer: {
     flexDirection: 'row',

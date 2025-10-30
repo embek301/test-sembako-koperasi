@@ -9,27 +9,43 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
-          name="products/[id]" 
+          name="product/[id]" 
           options={{ 
             title: 'Product Detail',
             headerBackTitle: 'Back'
           }} 
         />
         <Stack.Screen 
-          name="cart/checkout" 
-          options={{ title: 'Checkout' }} 
+          name="product/list" 
+          options={{ 
+            title: 'Products',
+            headerBackTitle: 'Back'
+          }} 
         />
         <Stack.Screen 
-          name="orders/[id]" 
-          options={{ title: 'Order Detail' }} 
+          name="checkout" 
+          options={{ 
+            title: 'Checkout',
+            headerBackTitle: 'Back'
+          }} 
         />
         <Stack.Screen 
-          name="orders/tracking" 
-          options={{ title: 'Track Order' }} 
+          name="order/[id]" 
+          options={{ 
+            title: 'Order Detail',
+            headerBackTitle: 'Back'
+          }} 
         />
         <Stack.Screen 
-          name="payment/[orderId]" 
-          options={{ title: 'Payment' }} 
+          name="payment/[id]" 
+          options={{ 
+            title: 'Payment',
+            headerBackTitle: 'Back'
+          }} 
+        />
+        <Stack.Screen 
+          name="profile/_layouts" 
+          options={{ headerShown: false }} 
         />
       </Stack>
     </AuthProvider>

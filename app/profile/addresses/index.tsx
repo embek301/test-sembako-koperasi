@@ -15,11 +15,14 @@ import { addressAPI } from '../../../src/api/apiClient';
 
 interface Address {
   id: number;
-  name: string;
+  recipient_name: string;
   phone: string;
   address: string;
+  province: string;
   city: string;
+  district: string;
   postal_code: string;
+  label: string;
   is_default: boolean;
 }
 
@@ -78,6 +81,24 @@ export default function AddressesScreen() {
     }
   };
 
+  const getLabelIcon = (label: string) => {
+    switch (label) {
+      case 'home': return '🏠';
+      case 'office': return '🏢';
+      case 'apartment': return '🏘️';
+      default: return '📍';
+    }
+  };
+
+  const getLabelText = (label: string) => {
+    switch (label) {
+      case 'home': return 'Rumah';
+      case 'office': return 'Kantor';
+      case 'apartment': return 'Apartemen';
+      default: return 'Lainnya';
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -101,18 +122,26 @@ export default function AddressesScreen() {
           addresses.map((address) => (
             <View key={address.id} style={styles.addressCard}>
               <View style={styles.addressHeader}>
-                <Text style={styles.addressName}>{address.name}</Text>
-                {address.is_default && (
-                  <View style={styles.defaultBadge}>
-                    <Text style={styles.defaultBadgeText}>Default</Text>
-                  </View>
-                )}
+                <View style={styles.addressTitleRow}>
+                  <Text style={styles.addressLabel}>
+                    {getLabelIcon(address.label)} {getLabelText(address.label)}
+                  </Text>
+                  {address.is_default && (
+                    <View style={styles.defaultBadge}>
+                      <Text style={styles.defaultBadgeText}>Default</Text>
+                    </View>
+                  )}
+                </View>
               </View>
               
+              <Text style={styles.addressRecipient}>{address.recipient_name}</Text>
               <Text style={styles.addressPhone}>{address.phone}</Text>
               <Text style={styles.addressText}>{address.address}</Text>
               <Text style={styles.addressText}>
-                {address.city}, {address.postal_code}
+                {address.district}, {address.city}
+              </Text>
+              <Text style={styles.addressText}>
+                {address.province}, {address.postal_code}
               </Text>
 
               <View style={styles.addressActions}>
@@ -200,12 +229,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   addressHeader: {
+    marginBottom: 12,
+  },
+  addressTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  addressName: {
+  addressLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
@@ -221,10 +252,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  addressRecipient: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
   addressPhone: {
     fontSize: 14,
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   addressText: {
     fontSize: 14,
