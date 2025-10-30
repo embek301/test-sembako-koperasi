@@ -1,56 +1,156 @@
-// app/profile/change-password.tsx
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Alert,
+  ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/context/AuthContext';
 import { authAPI } from '../../src/api/apiClient';
+import { COLORS, SIZES } from '../../src/utils/constants';
 
-export default function ChangePasswordScreen() {
+export default function EditProfileScreen() {
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatar || null);
+  
   const [formData, setFormData] = useState({
-    current_password: '',
-    new_password: '',
-    new_password_confirmation: '',
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
   });
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleChangePassword = async () => {
-    if (!formData.current_password || !formData.new_password || !formData.new_password_confirmation) {
-      Alert.alert('Error', 'Semua field harus diisi');
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access gallery is required!');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setAvatarUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      // Take photo
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setAvatarUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      'Change Profile Picture',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: takePhoto,
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: pickImage,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const handleSave = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      Alert.alert('Error', 'Name is required');
       return;
     }
 
-    if (formData.new_password.length < 6) {
-      Alert.alert('Error', 'Password baru minimal 6 karakter');
-      return;
-    }
-
-    if (formData.new_password !== formData.new_password_confirmation) {
-      Alert.alert('Error', 'Konfirmasi password tidak sesuai');
+    if (!formData.phone.trim()) {
+      Alert.alert('Error', 'Phone number is required');
       return;
     }
 
     setLoading(true);
     try {
-      await authAPI.changePassword(formData);
-      Alert.alert('Sukses', 'Password berhasil diubah');
-      router.back();
+      // Create FormData for multipart/form-data
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('phone', formData.phone);
+      if (formData.address) {
+        data.append('address', formData.address);
+      }
+
+      // Add avatar if changed
+      if (avatarUri && avatarUri !== user?.avatar) {
+        const filename = avatarUri.split('/').pop() || 'avatar.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+        data.append('avatar', {
+          uri: avatarUri,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      const response = await authAPI.updateProfile(data);
+
+      if (response.data.success) {
+        // Update local user data
+        await updateUser(response.data.data);
+        
+        Alert.alert('Success', 'Profile updated successfully', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }
     } catch (error: any) {
-      console.error('Error changing password:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Gagal mengubah password'
-      );
+      console.error('Error updating profile:', error);
+      const message = error.response?.data?.message || 'Failed to update profile';
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
@@ -58,83 +158,103 @@ export default function ChangePasswordScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password Saat Ini</Text>
-          <View style={styles.passwordInput}>
+      <View style={styles.content}>
+        {/* Avatar Section */}
+        <View style={styles.avatarSection}>
+          <TouchableOpacity onPress={showImageOptions} style={styles.avatarContainer}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.cameraButton}>
+              <Ionicons name="camera" size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.avatarHint}>Tap to change profile picture</Text>
+        </View>
+
+        {/* Form Section */}
+        <View style={styles.formSection}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name *</Text>
             <TextInput
               style={styles.input}
-              value={formData.current_password}
-              onChangeText={(text) => setFormData({ ...formData, current_password: text })}
-              placeholder="Masukkan password saat ini"
-              secureTextEntry={!showCurrentPassword}
+              value={formData.name}
+              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              placeholder="Enter your full name"
+              autoCapitalize="words"
             />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-            >
-              <Text style={styles.eyeButtonText}>
-                {showCurrentPassword ? '🙈' : '👁️'}
-              </Text>
-            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={user?.email}
+              editable={false}
+              placeholder="Email address"
+            />
+            <Text style={styles.hint}>Email cannot be changed</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.phone}
+              onChangeText={(text) => setFormData({ ...formData, phone: text })}
+              placeholder="08123456789"
+              keyboardType="phone-pad"
+              maxLength={13}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Address</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={formData.address}
+              onChangeText={(text) => setFormData({ ...formData, address: text })}
+              placeholder="Enter your address"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Role</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>{user?.role?.toUpperCase() || 'MEMBER'}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password Baru</Text>
-          <View style={styles.passwordInput}>
-            <TextInput
-              style={styles.input}
-              value={formData.new_password}
-              onChangeText={(text) => setFormData({ ...formData, new_password: text })}
-              placeholder="Masukkan password baru"
-              secureTextEntry={!showNewPassword}
-            />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowNewPassword(!showNewPassword)}
-            >
-              <Text style={styles.eyeButtonText}>
-                {showNewPassword ? '🙈' : '👁️'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.helperText}>Minimal 6 karakter</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Konfirmasi Password Baru</Text>
-          <View style={styles.passwordInput}>
-            <TextInput
-              style={styles.input}
-              value={formData.new_password_confirmation}
-              onChangeText={(text) => setFormData({ ...formData, new_password_confirmation: text })}
-              placeholder="Konfirmasi password baru"
-              secureTextEntry={!showConfirmPassword}
-            />
-            <TouchableOpacity
-              style={styles.eyeButton}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              <Text style={styles.eyeButtonText}>
-                {showConfirmPassword ? '🙈' : '👁️'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.footer}>
+        {/* Save Button */}
         <TouchableOpacity
           style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleChangePassword}
-          disabled={loading}
-        >
+          onPress={handleSave}
+          disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.saveButtonText}>Ubah Password</Text>
+            <>
+              <Ionicons name="checkmark-circle" size={24} color="#fff" />
+              <Text style={styles.saveButtonText}>Save Changes</Text>
+            </>
           )}
+        </TouchableOpacity>
+
+        {/* Cancel Button */}
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => router.back()}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -144,61 +264,136 @@ export default function ChangePasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
-  form: {
+  content: {
+    padding: SIZES.padding,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: COLORS.primary,
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: COLORS.primary,
+  },
+  avatarText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  avatarHint: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginTop: 5,
+  },
+  formSection: {
     backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
     borderRadius: 12,
+    padding: SIZES.padding,
+    marginBottom: 20,
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.text,
     marginBottom: 8,
   },
-  passwordInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
   input: {
-    flex: 1,
-    padding: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.borderRadius,
+    padding: 15,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  eyeButton: {
-    padding: 12,
+  inputDisabled: {
+    backgroundColor: '#f0f0f0',
+    color: COLORS.gray,
   },
-  eyeButtonText: {
-    fontSize: 16,
+  textArea: {
+    height: 80,
+    paddingTop: 12,
   },
-  helperText: {
+  hint: {
     fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 4,
+    color: COLORS.lightGray,
+    marginTop: 5,
   },
-  footer: {
-    padding: 16,
+  roleBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  roleText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   saveButton: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    borderRadius: SIZES.borderRadius,
+    marginBottom: 10,
   },
   saveButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: COLORS.gray,
   },
   saveButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: SIZES.borderRadius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cancelButtonText: {
+    color: COLORS.gray,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,32 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { orderAPI } from '../../src/api/apiClient';
+import { COLORS, SIZES } from '../../src/utils/constants';
+import { formatPrice, formatDate } from '../../src/utils/formatters';
+
+interface Order {
+  id: number;
+  order_number: string;
+  total_price: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+  items: any[];
+}
 
 export default function OrdersScreen() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     loadOrders();
-  }, [filter]);
+  }, []);
 
   const loadOrders = async () => {
     try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await orderAPI.getAll(params);
-      setOrders(response.data.data || response.data);
+      const response = await orderAPI.getAll();
+      if (response.data.success) {
+        setOrders(response.data.data.data);
+      }
     } catch (error) {
       console.error('Error loading orders:', error);
     } finally {
@@ -41,185 +52,72 @@ export default function OrdersScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#FF9500';
-      case 'processing':
-        return '#007AFF';
-      case 'shipped':
-        return '#5856D6';
-      case 'delivered':
-        return '#34C759';
-      case 'cancelled':
-        return '#FF3B30';
-      default:
-        return '#8E8E93';
-    }
+    const colors: { [key: string]: string } = {
+      pending: COLORS.warning,
+      paid: COLORS.info,
+      processing: COLORS.info,
+      shipped: COLORS.warning,
+      delivered: COLORS.success,
+      cancelled: COLORS.error,
+    };
+    return colors[status] || COLORS.gray;
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Menunggu';
-      case 'processing':
-        return 'Diproses';
-      case 'shipped':
-        return 'Dikirim';
-      case 'delivered':
-        return 'Selesai';
-      case 'cancelled':
-        return 'Dibatalkan';
-      default:
-        return status;
-    }
-  };
-
-  const renderOrderItem = ({ item }: any) => (
+  const renderOrder = ({ item }: { item: Order }) => (
     <TouchableOpacity
       style={styles.orderCard}
-      onPress={() => router.push(`/order/${item.id}`)}
-    >
+      onPress={() => router.push(`/order/${item.id}` as any)}>
       <View style={styles.orderHeader}>
-        <View>
-          <Text style={styles.orderNumber}>Order #{item.id}</Text>
-          <Text style={styles.orderDate}>
-            {new Date(item.created_at).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(item.status) + '20' },
-          ]}
-        >
-          <Text
-            style={[styles.statusText, { color: getStatusColor(item.status) }]}
-          >
-            {getStatusText(item.status)}
-          </Text>
+        <Text style={styles.orderNumber}>#{item.order_number}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
         </View>
       </View>
 
-      <View style={styles.orderInfo}>
-        <Text style={styles.itemCount}>
-          {item.items?.length || 0} item
-        </Text>
-        <Text style={styles.orderTotal}>
-          Rp {item.total?.toLocaleString('id-ID')}
-        </Text>
+      <Text style={styles.orderDate}>{formatDate(item.created_at)}</Text>
+
+      <View style={styles.orderItems}>
+        <Text style={styles.itemsCount}>{item.items?.length || 0} items</Text>
+        <Text style={styles.orderTotal}>{formatPrice(item.total_price)}</Text>
       </View>
 
       <View style={styles.orderFooter}>
-        {item.status === 'pending' && (
-          <TouchableOpacity
-            style={styles.payButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              router.push(`/payment/${item.id}`);
-            }}
-          >
-            <Text style={styles.payButtonText}>Bayar</Text>
-          </TouchableOpacity>
-        )}
-        {item.status === 'shipped' && (
-          <TouchableOpacity
-            style={styles.trackButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              router.push(`/order/tracking/${item.id}`);
-            }}
-          >
-            <Ionicons name="location-outline" size={16} color="#007AFF" />
-            <Text style={styles.trackButtonText}>Lacak</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.detailButton}>
-          <Text style={styles.detailButtonText}>Lihat Detail</Text>
-          <Ionicons name="chevron-forward" size={16} color="#007AFF" />
-        </TouchableOpacity>
+        <Text style={styles.paymentStatus}>
+          Payment: {item.payment_status}
+        </Text>
+        <Text style={styles.viewDetail}>View Details →</Text>
       </View>
     </TouchableOpacity>
   );
 
-  const filters = [
-    { key: 'all', label: 'Semua' },
-    { key: 'pending', label: 'Menunggu' },
-    { key: 'processing', label: 'Diproses' },
-    { key: 'shipped', label: 'Dikirim' },
-    { key: 'delivered', label: 'Selesai' },
-  ];
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pesanan</Text>
-      </View>
-
-      <View style={styles.filterContainer}>
-        <FlatList
-          data={filters}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.key}
-          renderItem={({ item }) => (
+      <FlatList
+        data={orders}
+        renderItem={renderOrder}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>📦</Text>
+            <Text style={styles.emptyTitle}>No orders yet</Text>
             <TouchableOpacity
-              style={[
-                styles.filterButton,
-                filter === item.key && styles.filterButtonActive,
-              ]}
-              onPress={() => setFilter(item.key)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  filter === item.key && styles.filterTextActive,
-                ]}
-              >
-                {item.label}
-              </Text>
+              style={styles.shopButton}
+              onPress={() => router.push('/(tabs)')}>
+              <Text style={styles.shopButtonText}>Start Shopping</Text>
             </TouchableOpacity>
-          )}
-        />
-      </View>
-
-      {orders.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={80} color="#C7C7CC" />
-          <Text style={styles.emptyText}>Belum Ada Pesanan</Text>
-          <Text style={styles.emptySubtext}>
-            Pesanan Anda akan muncul di sini
-          </Text>
-          <TouchableOpacity
-            style={styles.shopButton}
-            onPress={() => router.push('/(tabs)')}
-          >
-            <Text style={styles.shopButtonText}>Mulai Belanja</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={orders}
-          renderItem={renderOrderItem}
-          keyExtractor={(item: any) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-        />
-      )}
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -227,174 +125,108 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    backgroundColor: '#fff',
-    padding: 16,
-    paddingTop: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  filterContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-  },
-  filterButtonActive: {
-    backgroundColor: '#007AFF',
-  },
-  filterText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
   listContent: {
-    padding: 16,
+    padding: SIZES.padding,
   },
   orderCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   orderNumber: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  orderDate: {
-    fontSize: 14,
-    color: '#8E8E93',
+    fontWeight: 'bold',
+    color: COLORS.text,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
-  orderInfo: {
+  orderDate: {
+    fontSize: 12,
+    color: COLORS.gray,
+    marginBottom: 10,
+  },
+  orderItems: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    marginBottom: 10,
   },
-  itemCount: {
+  itemsCount: {
     fontSize: 14,
-    color: '#8E8E93',
+    color: COLORS.gray,
   },
   orderTotal: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontWeight: 'bold',
+    color: COLORS.primary,
   },
   orderFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
   },
-  payButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 8,
+  paymentStatus: {
+    fontSize: 12,
+    color: COLORS.gray,
+    textTransform: 'capitalize',
   },
-  payButtonText: {
-    color: '#fff',
+  viewDetail: {
     fontSize: 14,
+    color: COLORS.primary,
     fontWeight: '600',
-  },
-  trackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  trackButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  detailButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  detailButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  separator: {
-    height: 12,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingVertical: 50,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 80,
+    marginBottom: 20,
   },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#8E8E93',
-    marginBottom: 24,
+  emptyTitle: {
+    fontSize: 18,
+    color: COLORS.gray,
+    marginBottom: 20,
   },
   shopButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 32,
+    backgroundColor: COLORS.primary,
     paddingVertical: 12,
+    paddingHorizontal: 30,
     borderRadius: 8,
   },
   shopButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });

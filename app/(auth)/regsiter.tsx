@@ -11,11 +11,11 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
+import { COLORS } from '../../src/utils/constants';
 
 export default function RegisterScreen() {
-  const router = useRouter();
   const { register } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
@@ -41,83 +41,80 @@ export default function RegisterScreen() {
     const result = await register(formData);
     setLoading(false);
 
-    if (!result.success) {
+    if (result.success) {
+      router.replace('/(tabs)');
+    } else {
       Alert.alert('Registration Failed', result.message);
     }
-  };
-
-  const updateFormData = (key: string, value: string) => {
-    setFormData({ ...formData, [key]: value });
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+      style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to get started</Text>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Sign up to get started</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            value={formData.name}
-            onChangeText={(text) => updateFormData('name', text)}
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Full Name"
+          value={formData.name}
+          onChangeText={(text) => setFormData({ ...formData, name: text })}
+          autoCapitalize="words"
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={formData.email}
-            onChangeText={(text) => updateFormData('email', text)}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={formData.email}
+          onChangeText={(text) => setFormData({ ...formData, email: text })}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Phone Number"
-            value={formData.phone}
-            onChangeText={(text) => updateFormData('phone', text)}
-            keyboardType="phone-pad"
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Phone Number"
+          value={formData.phone}
+          onChangeText={(text) => setFormData({ ...formData, phone: text })}
+          keyboardType="phone-pad"
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={formData.password}
-            onChangeText={(text) => updateFormData('password', text)}
-            secureTextEntry
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={formData.password}
+          onChangeText={(text) => setFormData({ ...formData, password: text })}
+          secureTextEntry
+          autoComplete="password"
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            value={formData.password_confirmation}
-            onChangeText={(text) => updateFormData('password_confirmation', text)}
-            secureTextEntry
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          value={formData.password_confirmation}
+          onChangeText={(text) =>
+            setFormData({ ...formData, password_confirmation: text })
+          }
+          secureTextEntry
+        />
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Register</Text>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleRegister}
+          disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Register</Text>
+          )}
+        </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.linkText}>
-              Already have an account? Login
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.linkText}>Already have an account? Login</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -130,16 +127,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  content: {
-    flex: 1,
     justifyContent: 'center',
     padding: 20,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: COLORS.primary,
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -158,7 +152,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   button: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: COLORS.primary,
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
@@ -170,7 +164,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   linkText: {
-    color: '#2E7D32',
+    color: COLORS.primary,
     textAlign: 'center',
     marginTop: 20,
     fontSize: 14,

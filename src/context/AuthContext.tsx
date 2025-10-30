@@ -1,5 +1,5 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { authAPI } from '../api/apiClient';
 
 interface User {
@@ -7,6 +7,9 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  role?: string;
+  address?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {

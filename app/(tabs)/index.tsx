@@ -1,27 +1,40 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { categoryAPI, productAPI } from '../../src/api/apiClient';
+import { COLORS, SIZES } from '../../src/utils/constants';
+import { formatPrice } from '../../src/utils/formatters';
+
+interface Category {
+  id: number;
+  name: string;
+  icon: string;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  images: string[];
+  unit: string;
+  stock: number;
+  average_rating: number;
+}
 
 export default function HomeScreen() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -29,15 +42,18 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
-      const [productsRes, categoriesRes, featuredRes] = await Promise.all([
-        productAPI.getAll({ limit: 10 }),
+      const [categoriesRes, productsRes] = await Promise.all([
         categoryAPI.getAll(),
         productAPI.getFeatured(),
       ]);
 
-      setProducts(productsRes.data.data || productsRes.data);
-      setCategories(categoriesRes.data.data || categoriesRes.data);
-      setFeaturedProducts(featuredRes.data.data || featuredRes.data);
+      if (categoriesRes.data.success) {
+        setCategories(categoriesRes.data.data);
+      }
+
+      if (productsRes.data.success) {
+        setFeaturedProducts(productsRes.data.data);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -51,43 +67,45 @@ export default function HomeScreen() {
     loadData();
   };
 
-  const handleSearch = () => {
-    router.push(`/product/search?q=${searchQuery}`);
-  };
-
-  const renderCategoryItem = ({ item }: any) => (
+  const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
       style={styles.categoryCard}
-      onPress={() => router.push(`/product/category/${item.id}`)}
-    >
+      onPress={() => router.push('/product/list' as any)}>
       <View style={styles.categoryIcon}>
-        <Ionicons name="pricetag" size={24} color="#007AFF" />
+        <Text style={styles.categoryEmoji}>{item.icon || '🛒'}</Text>
       </View>
-      <Text style={styles.categoryName} numberOfLines={1}>
-        {item.name}
-      </Text>
+      <Text style={styles.categoryName}>{item.name}</Text>
     </TouchableOpacity>
   );
 
-  const renderProductItem = ({ item }: any) => (
+  const renderProduct = (product: Product) => (
     <TouchableOpacity
+      key={product.id}
       style={styles.productCard}
-      onPress={() => router.push(`/product/${item.id}`)}
-    >
-      <Image
-        source={{ uri: item.image || 'https://via.placeholder.com/150' }}
-        style={styles.productImage}
-      />
-      <View style={styles.productInfo}>
+      onPress={() => router.push(`/product/${product.id}` as any)}>
+      <View style={styles.productImage}>
+        <Text style={styles.productImagePlaceholder}>📦</Text>
+      </View>
+
+      <View style={styles.productContent}>
         <Text style={styles.productName} numberOfLines={2}>
-          {item.name}
+          {product.name}
         </Text>
-        <Text style={styles.productPrice}>
-          Rp {item.price?.toLocaleString('id-ID')}
-        </Text>
-        {item.discount > 0 && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{item.discount}% OFF</Text>
+
+        <Text style={styles.productPrice}>{formatPrice(product.price)}</Text>
+
+        <View style={styles.productFooter}>
+          <Text style={styles.productUnit}>per {product.unit}</Text>
+          {product.stock > 0 ? (
+            <Text style={styles.stockIn}>In Stock</Text>
+          ) : (
+            <Text style={styles.stockOut}>Out of Stock</Text>
+          )}
+        </View>
+
+        {product.average_rating > 0 && (
+          <View style={styles.rating}>
+            <Text style={styles.ratingText}>⭐ {product.average_rating.toFixed(1)}</Text>
           </View>
         )}
       </View>
@@ -97,7 +115,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -105,87 +123,39 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Koperasi Swasembada</Text>
-        <TouchableOpacity onPress={() => (router as any).push('/notifications')}>
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
-      </View>
-
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#8E8E93" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Cari produk..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
+      <TouchableOpacity
+        style={styles.searchBar}
+        onPress={() => router.push('/product/list')}>
+        <Text style={styles.searchText}>Search products...</Text>
+      </TouchableOpacity>
+
+      {/* Categories */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Categories</Text>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={categories}
+          renderItem={renderCategory}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.categoriesList}
         />
       </View>
 
       {/* Featured Products */}
-      {featuredProducts.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Produk Unggulan</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {featuredProducts.map((item: any) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.featuredCard}
-                onPress={() => router.push(`/product/${item.id}`)}
-              >
-                <Image
-                  source={{ uri: item.image || 'https://via.placeholder.com/200' }}
-                  style={styles.featuredImage}
-                />
-                <Text style={styles.featuredName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.featuredPrice}>
-                  Rp {item.price?.toLocaleString('id-ID')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Categories */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Kategori</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/categories')}>
-            <Text style={styles.seeAll}>Lihat Semua</Text>
+          <Text style={styles.sectionTitle}>Featured Products</Text>
+          <TouchableOpacity onPress={() => router.push('/product/list')}>
+            <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
         </View>
-        <FlatList
-          data={categories.slice(0, 6)}
-          renderItem={renderCategoryItem}
-          keyExtractor={(item: any) => item.id.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
 
-      {/* Products */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Produk Terbaru</Text>
+        <View style={styles.productsGrid}>
+          {featuredProducts.map((product) => renderProduct(product))}
         </View>
-        <FlatList
-          data={products}
-          renderItem={renderProductItem}
-          keyExtractor={(item: any) => item.id.toString()}
-          numColumns={2}
-          scrollEnabled={false}
-          columnWrapperStyle={styles.productRow}
-        />
       </View>
     </ScrollView>
   );
@@ -194,143 +164,149 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+  searchBar: {
     backgroundColor: '#fff',
-    paddingTop: 50,
+    margin: SIZES.margin,
+    padding: 15,
+    borderRadius: SIZES.borderRadius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
+  searchText: {
+    color: COLORS.lightGray,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: SIZES.padding,
+    marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    paddingHorizontal: SIZES.padding,
+    marginBottom: 15,
   },
-  seeAll: {
+  seeAllText: {
+    color: COLORS.primary,
     fontSize: 14,
-    color: '#007AFF',
+  },
+  categoriesList: {
+    paddingHorizontal: 10,
   },
   categoryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 5,
     alignItems: 'center',
-    marginLeft: 16,
-    width: 80,
+    width: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   categoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F2F2F7',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
+  categoryEmoji: {
+    fontSize: 24,
+  },
   categoryName: {
     fontSize: 12,
-    color: '#333',
+    color: COLORS.text,
     textAlign: 'center',
   },
-  featuredCard: {
-    width: 200,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginLeft: 16,
-    overflow: 'hidden',
-  },
-  featuredImage: {
-    width: '100%',
-    height: 150,
-  },
-  featuredName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    padding: 12,
-    paddingBottom: 4,
-  },
-  featuredPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-  },
-  productRow: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 10,
   },
   productCard: {
-    width: '48%',
     backgroundColor: '#fff',
     borderRadius: 12,
-    overflow: 'hidden',
+    marginHorizontal: 5,
+    marginBottom: 15,
+    width: '47%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   productImage: {
     width: '100%',
     height: 150,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  productInfo: {
-    padding: 12,
+  productImagePlaceholder: {
+    fontSize: 48,
+  },
+  productContent: {
+    padding: 10,
   },
   productName: {
     fontSize: 14,
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 5,
     height: 36,
   },
   productPrice: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 5,
   },
-  discountBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  productFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  discountText: {
-    color: '#fff',
+  productUnit: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  stockIn: {
     fontSize: 10,
+    color: COLORS.success,
     fontWeight: '600',
+  },
+  stockOut: {
+    fontSize: 10,
+    color: COLORS.error,
+    fontWeight: '600',
+  },
+  rating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#FF9800',
   },
 });

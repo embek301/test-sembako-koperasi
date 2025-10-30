@@ -1,8 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { AxiosInstance } from 'axios';
 
 // GANTI IP INI DENGAN IP LAPTOP ANDA!
-const API_URL = 'http://192.168.1.21:8000/api';
+const API_URL = 'http://192.168.100.238:8000/api';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -18,9 +18,17 @@ apiClient.interceptors.request.use(
   async (config) => {
     try {
       console.log('🌐 Request:', config.method?.toUpperCase(), config.url);
+      
+      // Get token
       const token = await AsyncStorage.getItem('token');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Handle FormData - remove Content-Type to let browser set it with boundary
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+        console.log('📤 Sending FormData');
       }
     } catch (error) {
       console.error('❌ Token error:', error);
@@ -38,6 +46,12 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     console.error('❌ Error:', error.config?.url, error.response?.status);
+    
+    // Log validation errors for debugging
+    if (error.response?.status === 422) {
+      console.error('Validation errors:', error.response?.data?.errors);
+    }
+    
     if (error.response?.status === 401) {
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
@@ -52,7 +66,14 @@ export const authAPI = {
   login: (data: any) => apiClient.post('/login', data),
   logout: () => apiClient.post('/logout'),
   getProfile: () => apiClient.get('/profile'),
-  updateProfile: (data: any) => apiClient.put('/profile', data),
+  updateProfile: (data: any) => {
+    // Use PATCH for partial updates with FormData
+    return apiClient.post('/profile', data, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   changePassword: (data: any) => apiClient.post('/change-password', data),
 };
 

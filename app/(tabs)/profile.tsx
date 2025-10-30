@@ -1,281 +1,253 @@
-    import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Image,
 } from 'react-native';
-import { authAPI } from '../../src/api/apiClient';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/context/AuthContext';
+import { COLORS, SIZES } from '../../src/utils/constants';
 
-    export default function ProfileScreen() {
-    const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+// GANTI IP INI DENGAN IP LAPTOP ANDA!
+const BASE_URL = 'http://192.168.100.238:8000';
 
-    useEffect(() => {
-        loadProfile();
-    }, []);
+export default function ProfileScreen() {
+  const { user, logout } = useAuth();
 
-    const loadProfile = async () => {
-        try {
-        const response = await authAPI.getProfile();
-        setUser(response.data.data || response.data);
-        } catch (error) {
-        console.error('Error loading profile:', error);
-        } finally {
-        setLoading(false);
-        }
-    };
-
-    const handleLogout = () => {
-        Alert.alert('Logout', 'Yakin ingin keluar?', [
-        { text: 'Batal', style: 'cancel' },
-        {
-            text: 'Logout',
-            style: 'destructive',
-            onPress: async () => {
-            try {
-                await authAPI.logout();
-            } catch (error) {
-                console.log('Logout API error:', error);
-            } finally {
-                await AsyncStorage.removeItem('token');
-                await AsyncStorage.removeItem('user');
-                router.replace('/(auth)/login');
-            }
-            },
-        },
-        ]);
-    };
-
-    const menuItems = [
-        {
-        icon: 'person-outline',
-        title: 'Edit Profile',
-        onPress: () => (router as any).push('/profile/edit'),
-        },
-        {
-        icon: 'location-outline',
-        title: 'Alamat',
-        onPress: () => (router as any).push('/profile/addresses'),
-        },
-        {
-        icon: 'heart-outline',
-        title: 'Wishlist',
-        onPress: () => (router as any).push('/profile/wishlist'),
-        },
-        {
-        icon: 'lock-closed-outline',
-        title: 'Ganti Password',
-        onPress: () => (router as any).push('/profile/change-password'),
-        },
-        {
-        icon: 'notifications-outline',
-        title: 'Notifikasi',
-        onPress: () => (router as any).push('/profile/notifications'),
-        },
-        {
-        icon: 'help-circle-outline',
-        title: 'Bantuan',
-        onPress: () => (router as any).push('/profile/help'),
-        },
-        {
-        icon: 'information-circle-outline',
-        title: 'Tentang',
-        onPress: () => (router as any).push('/profile/about'),
-        },
-    ];
-
-    if (loading) {
-        return (
-        <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-        );
+  // Construct full avatar URL
+  const getAvatarUrl = () => {
+    if (user?.avatar) {
+      // If avatar already contains full URL
+      if (user.avatar.startsWith('http')) {
+        return user.avatar;
+      }
+      // If avatar is just the path
+      return `${BASE_URL}/storage/${user.avatar}`;
     }
+    return null;
+  };
 
-    return (
-        <ScrollView style={styles.container}>
-        <View style={styles.header}>
-            <Text style={styles.headerTitle}>Profile</Text>
-        </View>
+  const avatarUrl = getAvatarUrl();
 
-        {/* User Info Card */}
-        <View style={styles.userCard}>
-            <View style={styles.avatar}>
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  };
+
+  const menuItems = [
+    {
+      icon: 'person-outline',
+      title: 'Edit Profile',
+      onPress: () => router.push('/profile/edit'),
+    },
+    {
+      icon: 'location-outline',
+      title: 'My Addresses',
+      onPress: () => router.push('/profile/addresses'),
+    },
+    {
+      icon: 'heart-outline',
+      title: 'Wishlist',
+      onPress: () => router.push('/profile/wishlist'),
+    },
+    {
+      icon: 'lock-closed-outline',
+      title: 'Change Password',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+    },
+    {
+      icon: 'notifications-outline',
+      title: 'Notifications',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+    },
+    {
+      icon: 'help-circle-outline',
+      title: 'Help & Support',
+      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+    },
+    {
+      icon: 'information-circle-outline',
+      title: 'About',
+      onPress: () => Alert.alert('About', 'Sembako Koperasi v1.0.0'),
+    },
+  ];
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        {avatarUrl ? (
+          <Image 
+            source={{ uri: avatarUrl }} 
+            style={styles.avatarImage}
+            onError={() => console.log('Error loading avatar:', avatarUrl)}
+          />
+        ) : (
+          <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-                {user?.name?.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </Text>
+          </View>
+        )}
+        <Text style={styles.userName}>{user?.name || 'User'}</Text>
+        <Text style={styles.userEmail}>{user?.email || ''}</Text>
+        <View style={styles.roleBadge}>
+          <Text style={styles.roleText}>{user?.role?.toUpperCase() || 'MEMBER'}</Text>
+        </View>
+      </View>
+
+      {/* Menu Items */}
+      <View style={styles.menuContainer}>
+        {menuItems.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.menuItem}
+            onPress={item.onPress}>
+            <View style={styles.menuItemLeft}>
+              <Ionicons name={item.icon as any} size={24} color={COLORS.gray} />
+              <Text style={styles.menuItemTitle}>{item.title}</Text>
             </View>
-            <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.name}</Text>
-            <Text style={styles.userEmail}>{user?.email}</Text>
-            {user?.phone && (
-                <Text style={styles.userPhone}>{user?.phone}</Text>
-            )}
-            </View>
-            <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => (router as any).push('/profile/edit')}
-            >
-            <Ionicons name="create-outline" size={20} color="#007AFF" />
-            </TouchableOpacity>
-        </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.lightGray} />
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-            {menuItems.map((item, index) => (
-            <TouchableOpacity
-                key={index}
-                style={styles.menuItem}
-                onPress={item.onPress}
-            >
-                <View style={styles.menuLeft}>
-                <View style={styles.menuIcon}>
-                    <Ionicons name={item.icon as any} size={24} color="#007AFF" />
-                </View>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-            </TouchableOpacity>
-            ))}
-        </View>
+      {/* Logout Button */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-            <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Version 1.0.0</Text>
+      </View>
+    </ScrollView>
+  );
+}
 
-        <View style={styles.footer}>
-            <Text style={styles.version}>Version 1.0.0</Text>
-        </View>
-        </ScrollView>
-    );
-    }
-
-    const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F2F2F7',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    header: {
-        backgroundColor: '#fff',
-        padding: 16,
-        paddingTop: 50,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E5EA',
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    userCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        margin: 16,
-        padding: 16,
-        borderRadius: 12,
-        gap: 12,
-    },
-    avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#007AFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    userInfo: {
-        flex: 1,
-    },
-    userName: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 4,
-    },
-    userEmail: {
-        fontSize: 14,
-        color: '#8E8E93',
-        marginBottom: 2,
-    },
-    userPhone: {
-        fontSize: 14,
-        color: '#8E8E93',
-    },
-    editButton: {
-        padding: 8,
-    },
-    menuContainer: {
-        backgroundColor: '#fff',
-        marginHorizontal: 16,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F2F2F7',
-    },
-    menuLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    menuIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#F2F2F7',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    menuTitle: {
-        fontSize: 16,
-        color: '#333',
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#fff',
-        margin: 16,
-        padding: 16,
-        borderRadius: 12,
-        gap: 8,
-    },
-    logoutText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#FF3B30',
-    },
-    footer: {
-        padding: 16,
-        alignItems: 'center',
-    },
-    version: {
-        fontSize: 12,
-        color: '#8E8E93',
-    },
-    });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  profileHeader: {
+    backgroundColor: COLORS.primary,
+    padding: 30,
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
+    marginBottom: 10,
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  roleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  menuContainer: {
+    backgroundColor: '#fff',
+    margin: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginLeft: 15,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    margin: 15,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  logoutText: {
+    fontSize: 16,
+    color: COLORS.error,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  footer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: COLORS.lightGray,
+  },
+});
