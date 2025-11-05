@@ -149,8 +149,18 @@ export const reviewAPI = {
 
 // Voucher APIs
 export const voucherAPI = {
+  // Get all available vouchers
   getAll: () => apiClient.get('/vouchers'),
-  validate: (data: any) => apiClient.post('/vouchers/validate', data),
+  
+  // Validate voucher code
+  validate: (data: { code: string; subtotal: number }) => 
+    apiClient.post('/vouchers/validate', data),
+  
+  // Apply voucher to order (optional - if you want to track applied vouchers)
+  apply: (data: { voucher_id: number; order_id: number }) => 
+    apiClient.post('/vouchers/apply', data),
+  
+  // Get user's voucher history
+  getHistory: () => apiClient.get('/vouchers/history'),
 };
-
 export default apiClient;

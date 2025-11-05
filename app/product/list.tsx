@@ -9,7 +9,8 @@ import {
   TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { productAPI } from '../../src/api/apiClient';
+import { Ionicons } from '@expo/vector-icons';
+import { productAPI, categoryAPI } from '../../src/api/apiClient';
 import { COLORS, SIZES } from '../../src/utils/constants';
 import { formatPrice } from '../../src/utils/formatters';
 
@@ -18,16 +19,37 @@ export default function ProductListScreen() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(search as string || '');
+  const [activeSearch, setActiveSearch] = useState(search as string || ''); // Track actual search
+  const [categoryName, setCategoryName] = useState<string>('');
 
+  // Only reload when categoryId or activeSearch changes (not searchQuery)
   useEffect(() => {
     loadProducts();
-  }, [categoryId]);
+  }, [categoryId, activeSearch]);
 
   const loadProducts = async () => {
     try {
+      setLoading(true);
       const params: any = {};
-      if (categoryId) params.category_id = categoryId;
-      if (searchQuery) params.search = searchQuery;
+      
+      if (categoryId) {
+        params.category_id = categoryId;
+        // Load category name for display
+        try {
+          const catResponse = await categoryAPI.getById(Number(categoryId));
+          if (catResponse.data.success) {
+            setCategoryName(catResponse.data.data.name);
+          }
+        } catch (error) {
+          console.error('Error loading category name:', error);
+        }
+      } else {
+        setCategoryName('');
+      }
+      
+      if (activeSearch) {
+        params.search = activeSearch;
+      }
 
       const response = await productAPI.getAll(params);
       if (response.data.success) {
@@ -41,7 +63,12 @@ export default function ProductListScreen() {
   };
 
   const handleSearch = () => {
-    loadProducts();
+    setActiveSearch(searchQuery);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setActiveSearch('');
   };
 
   const renderProduct = ({ item }: any) => (
@@ -58,6 +85,12 @@ export default function ProductListScreen() {
         </Text>
         <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
         <Text style={styles.productUnit}>per {item.unit}</Text>
+        
+        {item.stock > 0 ? (
+          <Text style={styles.stockIn}>In Stock</Text>
+        ) : (
+          <Text style={styles.stockOut}>Out of Stock</Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -72,18 +105,55 @@ export default function ProductListScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Category Header */}
+      {categoryName && (
+        <View style={styles.categoryHeader}>
+          <Text style={styles.categoryHeaderText}>📂 {categoryName}</Text>
+          {categoryId && (
+            <TouchableOpacity
+              style={styles.clearCategoryButton}
+              onPress={() => router.push('/product/list')}>
+              <Text style={styles.clearCategoryText}>Show All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-        />
+        <View style={styles.searchInputContainer}>
+          <Ionicons name="search-outline" size={20} color={COLORS.gray} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <Ionicons name="close-circle" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+          )}
+        </View>
+        
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
+          <Ionicons name="search" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Active Search Indicator */}
+      {activeSearch && (
+        <View style={styles.searchResultHeader}>
+          <Text style={styles.searchResultText}>
+            Search results for: "{activeSearch}"
+          </Text>
+          <TouchableOpacity onPress={clearSearch}>
+            <Ionicons name="close" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <FlatList
         data={products}
@@ -93,7 +163,26 @@ export default function ProductListScreen() {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No products found</Text>
+            <Text style={styles.emptyIcon}>🔍</Text>
+            <Text style={styles.emptyText}>
+              {activeSearch 
+                ? `No results found for "${activeSearch}"` 
+                : categoryName 
+                  ? `No products found in ${categoryName}` 
+                  : 'No products found'}
+            </Text>
+            {(activeSearch || categoryId) && (
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={() => {
+                  clearSearch();
+                  if (categoryId) {
+                    router.push('/product/list');
+                  }
+                }}>
+                <Text style={styles.clearFiltersButtonText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
       />
@@ -111,29 +200,80 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    paddingVertical: 12,
+    paddingHorizontal: SIZES.padding,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  categoryHeaderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  clearCategoryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+  },
+  clearCategoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
   searchContainer: {
     flexDirection: 'row',
     padding: SIZES.padding,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    gap: 10,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 12,
-    marginRight: 10,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  clearButton: {
+    padding: 4,
   },
   searchButton: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 8,
+    minWidth: 50,
   },
-  searchButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  searchResultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  searchResultText: {
+    fontSize: 14,
+    color: COLORS.gray,
+    fontStyle: 'italic',
   },
   listContent: {
     padding: 10,
@@ -180,13 +320,41 @@ const styles = StyleSheet.create({
   productUnit: {
     fontSize: 12,
     color: COLORS.gray,
+    marginBottom: 5,
+  },
+  stockIn: {
+    fontSize: 10,
+    color: COLORS.success,
+    fontWeight: '600',
+  },
+  stockOut: {
+    fontSize: 10,
+    color: COLORS.error,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 50,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 16,
     color: COLORS.gray,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  clearFiltersButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  clearFiltersButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

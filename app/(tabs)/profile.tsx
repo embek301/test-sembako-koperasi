@@ -49,42 +49,47 @@ export default function ProfileScreen() {
   };
 
   const menuItems = [
-    {
-      icon: 'person-outline',
-      title: 'Edit Profile',
-      onPress: () => router.push('/profile/edit'),
+  {
+    icon: 'person-outline',
+    title: 'Edit Profile',
+    onPress: () => router.push('/profile/edit'),
+  },
+  {
+    icon: 'location-outline',
+    title: 'My Addresses',
+    onPress: () => router.push('/profile/addresses'),
+  },
+  {
+    icon: 'pricetag', // NEW - Voucher icon
+    title: 'My Vouchers',
+    onPress: () => router.push('/vouchers' as any),
     },
-    {
-      icon: 'location-outline',
-      title: 'My Addresses',
-      onPress: () => router.push('/profile/addresses'),
-    },
-    {
-      icon: 'heart-outline',
-      title: 'Wishlist',
-      onPress: () => router.push('/profile/wishlist'),
-    },
-    {
-      icon: 'lock-closed-outline',
-      title: 'Change Password',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
-    },
-    {
-      icon: 'notifications-outline',
-      title: 'Notifications',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
-    },
-    {
-      icon: 'help-circle-outline',
-      title: 'Help & Support',
-      onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
-    },
-    {
-      icon: 'information-circle-outline',
-      title: 'About',
-      onPress: () => Alert.alert('About', 'Sembako Koperasi v1.0.0'),
-    },
-  ];
+  {
+    icon: 'heart-outline',
+    title: 'Wishlist',
+    onPress: () => router.push('/profile/wishlist'),
+  },
+  {
+    icon: 'lock-closed-outline',
+    title: 'Change Password',
+    onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+  },
+  {
+    icon: 'notifications-outline',
+    title: 'Notifications',
+    onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+  },
+  {
+    icon: 'help-circle-outline',
+    title: 'Help & Support',
+    onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+  },
+  {
+    icon: 'information-circle-outline',
+    title: 'About',
+    onPress: () => Alert.alert('About', 'Sembako Koperasi v1.0.0'),
+  },
+];
 
   return (
     <ScrollView style={styles.container}>

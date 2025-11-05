@@ -1,3 +1,5 @@
+// Update app/_layout.tsx - Add voucher route
+
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/context/AuthContext';
 
@@ -41,6 +43,13 @@ export default function RootLayout() {
           options={{ 
             title: 'Payment',
             headerBackTitle: 'Back'
+          }} 
+        />
+        <Stack.Screen 
+          name="vouchers/index" 
+          options={{ 
+            title: 'My Vouchers',
+            headerShown: false,
           }} 
         />
         <Stack.Screen 

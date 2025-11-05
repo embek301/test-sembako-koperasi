@@ -70,7 +70,10 @@ export default function HomeScreen() {
   const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
       style={styles.categoryCard}
-      onPress={() => router.push('/product/list' as any)}>
+      onPress={() => router.push({
+  pathname: '/product/list',
+  params: { categoryId: item.id }
+})}>
       <View style={styles.categoryIcon}>
         <Text style={styles.categoryEmoji}>{item.icon || '🛒'}</Text>
       </View>
