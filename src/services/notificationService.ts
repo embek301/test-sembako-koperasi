@@ -1,9 +1,9 @@
 // src/services/notificationService.ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../api/apiClient';
 
 // Configure notification handler
@@ -114,6 +114,7 @@ export const NotificationService = {
       }
     );
 
+    // Return cleanup function
     return () => {
       notificationListener.remove();
       responseListener.remove();
@@ -128,16 +129,12 @@ export const NotificationService = {
     
     // Navigate based on notification type
     if (data?.type === 'order_status' && data?.order_id) {
-      // Navigate to order detail
       console.log('Navigate to order:', data.order_id);
       // router.push(`/order/${data.order_id}`);
     } else if (data?.type === 'payment' && data?.order_id) {
-      // Navigate to payment
       console.log('Navigate to payment:', data.order_id);
     } else if (data?.type === 'voucher') {
-      // Navigate to vouchers
       console.log('Navigate to vouchers');
-      // router.push('/vouchers');
     }
   },
 
@@ -151,11 +148,6 @@ export const NotificationService = {
     seconds: number = 0
   ) {
     try {
-      const trigger: Notifications.NotificationTriggerInput | null =
-        seconds > 0
-          ? ({ seconds, repeats: false, type: 'timeInterval' } as Notifications.NotificationTriggerInput)
-          : null;
-
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -164,11 +156,174 @@ export const NotificationService = {
           sound: true,
           badge: 1,
         },
-        trigger,
+        trigger: seconds > 0 
+          ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds }
+          : null,
       });
     } catch (error) {
       console.error('❌ Error scheduling notification:', error);
     }
+  },
+
+  /**
+   * Send test notification
+   */
+  async sendTestNotification() {
+    try {
+      // Test different notification types
+      const notifications = [
+        {
+          title: 'Tes Notif',
+          body: 'HIDUP JOKOWI!!!',
+          data: { type: 'test' },
+        },
+        {
+          title: '📦 Order Update',
+          body: 'Your order #12345 has been shipped!',
+          data: { type: 'order_status', order_id: '12345' },
+        },
+        {
+          title: '💳 Payment Confirmed',
+          body: 'Your payment of Rp 150,000 has been confirmed',
+          data: { type: 'payment' },
+        },
+        {
+          title: '🎁 New Voucher',
+          body: 'Get 20% OFF with code DISKON20!',
+          data: { type: 'voucher' },
+        },
+      ];
+
+      // Send random notification
+      const randomNotif = notifications[Math.floor(Math.random() * notifications.length)];
+      
+      await this.scheduleLocalNotification(
+        randomNotif.title,
+        randomNotif.body,
+        randomNotif.data,
+        1 // 1 second delay
+      );
+
+      console.log('✅ Test notification scheduled');
+    } catch (error) {
+      console.error('❌ Error sending test notification:', error);
+    }
+  },
+
+  /**
+   * Send order status notification
+   */
+  async sendOrderNotification(orderNumber: string, status: string) {
+    const notifications: { [key: string]: { title: string; body: string } } = {
+      pending: {
+        title: '⏳ Order Pending',
+        body: `Order #${orderNumber} is waiting for payment`,
+      },
+      paid: {
+        title: '✅ Payment Confirmed',
+        body: `Your payment for order #${orderNumber} has been confirmed!`,
+      },
+      processing: {
+        title: '📦 Order Processing',
+        body: `Your order #${orderNumber} is being processed`,
+      },
+      shipped: {
+        title: '🚚 Order Shipped',
+        body: `Your order #${orderNumber} has been shipped!`,
+      },
+      delivered: {
+        title: '🎉 Order Delivered',
+        body: `Your order #${orderNumber} has been delivered!`,
+      },
+      cancelled: {
+        title: '❌ Order Cancelled',
+        body: `Your order #${orderNumber} has been cancelled`,
+      },
+    };
+
+    const notification = notifications[status];
+    if (notification) {
+      await this.scheduleLocalNotification(
+        notification.title,
+        notification.body,
+        { type: 'order_status', order_id: orderNumber, status },
+        0
+      );
+    }
+  },
+
+  /**
+   * Send payment notification
+   */
+  async sendPaymentNotification(amount: number, status: string) {
+    const formatPrice = (price: number) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(price);
+    };
+
+    const notifications: { [key: string]: { title: string; body: string } } = {
+      success: {
+        title: '✅ Payment Success',
+        body: `Payment of ${formatPrice(amount)} has been confirmed`,
+      },
+      pending: {
+        title: '⏳ Payment Pending',
+        body: `Waiting for payment confirmation of ${formatPrice(amount)}`,
+      },
+      failed: {
+        title: '❌ Payment Failed',
+        body: 'Payment failed. Please try again',
+      },
+    };
+
+    const notification = notifications[status];
+    if (notification) {
+      await this.scheduleLocalNotification(
+        notification.title,
+        notification.body,
+        { type: 'payment', amount, status },
+        0
+      );
+    }
+  },
+
+  /**
+   * Send voucher notification
+   */
+  async sendVoucherNotification(voucherCode: string, discount: string) {
+    await this.scheduleLocalNotification(
+      '🎁 New Voucher Available',
+      `Use code ${voucherCode} to get ${discount} discount!`,
+      { type: 'voucher', code: voucherCode },
+      0
+    );
+  },
+
+  /**
+   * Send stock alert notification
+   */
+  async sendStockAlertNotification(productName: string) {
+    await this.scheduleLocalNotification(
+      '✅ Product Back in Stock',
+      `${productName} is now available!`,
+      { type: 'stock', product_name: productName },
+      0
+    );
+  },
+
+  /**
+   * Send cart reminder notification
+   */
+  async sendCartReminderNotification(itemCount: number) {
+    await this.scheduleLocalNotification(
+      '🛒 Items in Cart',
+      `You have ${itemCount} items waiting in your cart. Complete your purchase now!`,
+      { type: 'cart_reminder', item_count: itemCount },
+      0
+    );
   },
 
   /**
@@ -193,6 +348,27 @@ export const NotificationService = {
   },
 
   /**
+   * Clear badge
+   */
+  async clearBadge() {
+    await Notifications.setBadgeCountAsync(0);
+  },
+
+  /**
+   * Cancel scheduled notification
+   */
+  async cancelNotification(notificationId: string) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
+  },
+
+  /**
+   * Cancel all scheduled notifications
+   */
+  async cancelAllScheduledNotifications() {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  },
+
+  /**
    * Configure notification channels (Android only)
    */
   async setupAndroidChannels() {
@@ -214,6 +390,24 @@ export const NotificationService = {
 
       await Notifications.setNotificationChannelAsync('promotions', {
         name: 'Promotions',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        sound: 'default',
+      });
+
+      await Notifications.setNotificationChannelAsync('test', {
+        name: 'Test Notifications',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+
+      await Notifications.setNotificationChannelAsync('stock', {
+        name: 'Stock Alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+
+      await Notifications.setNotificationChannelAsync('cart', {
+        name: 'Cart Reminders',
         importance: Notifications.AndroidImportance.DEFAULT,
         sound: 'default',
       });

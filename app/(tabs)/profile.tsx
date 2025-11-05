@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SIZES } from '../../src/utils/constants';
 import { NotificationBell } from '../../src/components/NotificationBell';
+import { NotificationService } from '@/src/services/notificationService';
 // GANTI IP INI DENGAN IP LAPTOP ANDA!
 const BASE_URL = 'http://192.168.100.238:8000';
 
@@ -76,8 +77,44 @@ export default function ProfileScreen() {
   },
   {
     icon: 'notifications-outline',
-    title: 'Notifications',
-    onPress: () => Alert.alert('Coming Soon', 'This feature will be available soon'),
+    title: 'Test Notifications',
+    onPress: () => {
+      Alert.alert(
+        'Test Notification',
+        'Choose notification type',
+        [
+          {
+            text: 'Random',
+            onPress: async () => {
+              await NotificationService.sendTestNotification();
+              Alert.alert('Success', 'Test notification will appear in 1 second');
+            },
+          },
+          {
+            text: 'Order Status',
+            onPress: async () => {
+              await NotificationService.sendOrderNotification('12345', 'shipped');
+              Alert.alert('Success', 'Order notification sent');
+            },
+          },
+          {
+            text: 'Payment',
+            onPress: async () => {
+              await NotificationService.sendPaymentNotification(150000, 'success');
+              Alert.alert('Success', 'Payment notification sent');
+            },
+          },
+          {
+            text: 'Voucher',
+            onPress: async () => {
+              await NotificationService.sendVoucherNotification('DISKON20', '20%');
+              Alert.alert('Success', 'Voucher notification sent');
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    },
   },
   {
     icon: 'help-circle-outline',
@@ -89,6 +126,7 @@ export default function ProfileScreen() {
     title: 'About',
     onPress: () => Alert.alert('About', 'Sembako Koperasi v1.0.0'),
   },
+  
 ];
 
   return (
