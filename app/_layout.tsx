@@ -2,14 +2,23 @@
 
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/context/AuthContext';
+import { NotificationProvider } from '../src/context/NotificationContext';
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <Stack>
+    <NotificationProvider>
+      <AuthProvider>
+        <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen 
+            name="notifications/index" 
+            options={{ 
+              title: 'Notifications',
+              headerBackTitle: 'Back'
+            }} 
+          />
         <Stack.Screen 
           name="product/[id]" 
           options={{ 
@@ -56,7 +65,8 @@ export default function RootLayout() {
           name="profile/_layouts" 
           options={{ headerShown: false }} 
         />
-      </Stack>
-    </AuthProvider>
+        </Stack>
+      </AuthProvider>
+    </NotificationProvider>
   );
 }

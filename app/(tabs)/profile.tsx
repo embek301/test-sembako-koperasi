@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SIZES } from '../../src/utils/constants';
-
+import { NotificationBell } from '../../src/components/NotificationBell';
 // GANTI IP INI DENGAN IP LAPTOP ANDA!
 const BASE_URL = 'http://192.168.100.238:8000';
 
@@ -108,6 +108,9 @@ export default function ProfileScreen() {
             </Text>
           </View>
         )}
+         <View style={styles.headerRight}>
+          <NotificationBell />
+        </View>
         <Text style={styles.userName}>{user?.name || 'User'}</Text>
         <Text style={styles.userEmail}>{user?.email || ''}</Text>
         <View style={styles.roleBadge}>
@@ -256,5 +259,10 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: COLORS.lightGray,
+  },
+   headerRight: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
   },
 });
