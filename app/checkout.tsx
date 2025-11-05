@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { cartAPI, addressAPI, orderAPI, voucherAPI } from '../src/api/apiClient';
 import { COLORS, SIZES } from '../src/utils/constants';
 import { formatPrice } from '../src/utils/formatters';
+import { useNotifications } from '../src/context/NotificationContext';
 
 interface Voucher {
   id: number;
@@ -194,7 +195,7 @@ export default function CheckoutScreen() {
       if (orderResponse.data.success) {
         const order = orderResponse.data.data;
         console.log('✅ Order created:', order.id);
-
+        await sendOrderNotification(order.order_number, 'pending');
         // Clear cart
         try {
           console.log('🧹 Clearing cart...');
@@ -241,7 +242,7 @@ export default function CheckoutScreen() {
       setProcessing(false);
     }
   };
-
+  const { sendOrderNotification } = useNotifications();
   const renderVoucherItem = ({ item }: { item: Voucher }) => {
     const isEligible = cartData.subtotal >= item.min_purchase;
     const discountAmount = calculateDiscount(item, cartData.subtotal);

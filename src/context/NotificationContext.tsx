@@ -1,10 +1,10 @@
 // src/context/NotificationContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { NotificationService } from '../services/notificationService';
-import { Alert } from 'react-native';
+import { router } from 'expo-router';
 
-interface NotificationItem {
+interface StoredNotification {
   id: string;
   title: string;
   body: string;
@@ -14,90 +14,136 @@ interface NotificationItem {
 }
 
 interface NotificationContextType {
-  notifications: NotificationItem[];
+  notifications: StoredNotification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
   clearAll: () => void;
-  deleteNotification: (id: string) => void;
+  sendOrderNotification: (orderNumber: string, status: string) => Promise<void>;
+  sendPaymentNotification: (amount: number, status: string) => Promise<void>;
+  sendVoucherNotification: (voucherCode: string, discount: string) => Promise<void>;
+  sendCartReminderNotification: (itemCount: number) => Promise<void>;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(
-  undefined
-);
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<StoredNotification[]>([]);
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    // Request permission and get token
-    initializeNotifications();
+    setupNotifications();
 
     // Setup listeners
-    const cleanup = NotificationService.setupListeners();
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('📩 Notification received:', notification);
+      addNotification(notification);
+    });
 
-    // Listen to received notifications
-    const notificationListener = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const newNotification: NotificationItem = {
-          id: notification.request.identifier,
-          title: notification.request.content.title || '',
-          body: notification.request.content.body || '',
-          data: notification.request.content.data,
-          timestamp: new Date(),
-          read: false,
-        };
-
-        setNotifications((prev) => [newNotification, ...prev]);
-
-        // Update badge
-        NotificationService.setBadgeCount(
-          notifications.filter((n) => !n.read).length + 1
-        );
-      }
-    );
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Notification tapped:', response);
+      handleNotificationTap(response);
+    });
 
     return () => {
-      cleanup();
-      notificationListener.remove();
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
     };
   }, []);
 
-  const initializeNotifications = async () => {
+  const setupNotifications = async () => {
     await NotificationService.requestPermission();
     await NotificationService.setupAndroidChannels();
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
-      const unread = updated.filter((n) => !n.read).length;
-      NotificationService.setBadgeCount(unread);
-      return updated;
-    });
+  const addNotification = (notification: any) => {
+    const newNotif: StoredNotification = {
+      id: notification.request.identifier,
+      title: notification.request.content.title || '',
+      body: notification.request.content.body || '',
+      data: notification.request.content.data,
+      timestamp: new Date(),
+      read: false,
+    };
+    
+    setNotifications(prev => [newNotif, ...prev]);
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    NotificationService.setBadgeCount(0);
+  const handleNotificationTap = (response: any) => {
+    const data = response.notification.request.content.data;
+    
+    // Navigate based on notification type
+    try {
+      if (data?.type === 'order_status' && data?.order_id) {
+        router.push(`/order/${data.order_id}` as any);
+      } else if (data?.type === 'payment') {
+        router.push('/(tabs)/orders');
+      } else if (data?.type === 'voucher') {
+        router.push('/vouchers' as any);
+      } else if (data?.type === 'cart_reminder') {
+        router.push('/(tabs)/cart');
+      }
+    } catch (error) {
+      console.error('Error navigating from notification:', error);
+    }
+    
+    // Mark as read
+    markAsRead(response.notification.request.identifier);
+  };
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev =>
+      prev.map(notif => (notif.id === id ? { ...notif, read: true } : notif))
+    );
   };
 
   const clearAll = () => {
     setNotifications([]);
     NotificationService.clearAllNotifications();
-    NotificationService.setBadgeCount(0);
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => {
-      const filtered = prev.filter((n) => n.id !== id);
-      const unread = filtered.filter((n) => !n.read).length;
-      NotificationService.setBadgeCount(unread);
-      return filtered;
-    });
+  // Wrapper functions untuk trigger notifikasi
+  const sendOrderNotification = async (orderNumber: string, status: string) => {
+    try {
+      await NotificationService.sendOrderNotification(orderNumber, status);
+      console.log(`📦 Order notification sent: ${orderNumber} - ${status}`);
+    } catch (error) {
+      console.error('Error sending order notification:', error);
+    }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const sendPaymentNotification = async (amount: number, status: string) => {
+    try {
+      await NotificationService.sendPaymentNotification(amount, status);
+      console.log(`💳 Payment notification sent: ${amount} - ${status}`);
+    } catch (error) {
+      console.error('Error sending payment notification:', error);
+    }
+  };
+
+  const sendVoucherNotification = async (voucherCode: string, discount: string) => {
+    try {
+      await NotificationService.sendVoucherNotification(voucherCode, discount);
+      console.log(`🎁 Voucher notification sent: ${voucherCode}`);
+    } catch (error) {
+      console.error('Error sending voucher notification:', error);
+    }
+  };
+
+  const sendCartReminderNotification = async (itemCount: number) => {
+    try {
+      await NotificationService.sendCartReminderNotification(itemCount);
+      console.log(`🛒 Cart reminder sent: ${itemCount} items`);
+    } catch (error) {
+      console.error('Error sending cart reminder:', error);
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <NotificationContext.Provider
@@ -105,9 +151,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         notifications,
         unreadCount,
         markAsRead,
-        markAllAsRead,
         clearAll,
-        deleteNotification,
+        sendOrderNotification,
+        sendPaymentNotification,
+        sendVoucherNotification,
+        sendCartReminderNotification,
       }}>
       {children}
     </NotificationContext.Provider>

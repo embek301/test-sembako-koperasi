@@ -4,14 +4,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { paymentAPI, orderAPI } from '../../src/api/apiClient';
 import { COLORS } from '../../src/utils/constants';
-
+import { useNotifications } from '../../src/context/NotificationContext';
 export default function PaymentScreen() {
   const { id } = useLocalSearchParams();
   const [snapToken, setSnapToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-
+const { sendPaymentNotification, sendOrderNotification } = useNotifications();  
   useEffect(() => {
     if (id) {
       verifyAndCreatePayment();
@@ -137,7 +137,8 @@ export default function PaymentScreen() {
           if (data.payment_status === 'paid' || 
               data.order_status === 'paid' ||
               data.payment?.status === 'success') {
-            
+            await sendPaymentNotification(data.total_price || 0, 'success');
+            await sendOrderNotification(data.order_number || id.toString(), 'paid');
             clearInterval(checkInterval);
             setIsCheckingStatus(false);
             
