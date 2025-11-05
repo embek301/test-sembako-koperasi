@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: SIZES.padding,
+    paddingTop: SIZES.padding * 4,
   },
   orderCard: {
     backgroundColor: '#fff',
