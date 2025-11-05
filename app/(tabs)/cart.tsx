@@ -7,9 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Image,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { cartAPI } from '../../src/api/apiClient';
 import { COLORS, SIZES } from '../../src/utils/constants';
 import { formatPrice } from '../../src/utils/formatters';
@@ -31,10 +32,20 @@ export default function CartScreen() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Load cart on first mount
   useEffect(() => {
     loadCart();
   }, []);
+
+  // Reload cart every time screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🛒 Cart screen focused - reloading cart');
+      loadCart();
+    }, [])
+  );
 
   const loadCart = async () => {
     try {
@@ -47,7 +58,13 @@ export default function CartScreen() {
       console.error('Error loading cart:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCart();
   };
 
   const updateQuantity = async (itemId: number, newQuantity: number) => {
@@ -136,6 +153,9 @@ export default function CartScreen() {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>🛒</Text>
         <Text style={styles.emptyTitle}>Your cart is empty</Text>
+        <Text style={styles.emptySubtext}>
+          Add products to your cart to see them here
+        </Text>
         <TouchableOpacity
           style={styles.shopButton}
           onPress={() => router.push('/(tabs)')}>
@@ -152,6 +172,14 @@ export default function CartScreen() {
         renderItem={renderCartItem}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
       />
 
       <View style={styles.bottomBar}>
@@ -162,7 +190,7 @@ export default function CartScreen() {
 
         <TouchableOpacity
           style={styles.checkoutButton}
-          onPress={() =>router.push('/checkout' as any)}>
+          onPress={() => router.push('/checkout' as any)}>
           <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         </TouchableOpacity>
       </View>
@@ -174,6 +202,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    paddingTop: SIZES.padding * 3,
   },
   loadingContainer: {
     flex: 1,
@@ -192,11 +221,18 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: COLORS.gray,
-    marginBottom: 20,
+    textAlign: 'center',
+    marginBottom: 30,
   },
   shopButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#ad190f',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,

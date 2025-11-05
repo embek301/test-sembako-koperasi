@@ -144,12 +144,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  profileHeader: {
+ profileHeader: {
     backgroundColor: COLORS.primary,
     padding: 30,
+    paddingTop: 60,
     alignItems: 'center',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+    
   },
   avatar: {
     width: 80,

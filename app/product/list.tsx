@@ -47,7 +47,7 @@ export default function ProductListScreen() {
   const renderProduct = ({ item }: any) => (
     <TouchableOpacity
       style={styles.productCard}
-      onPress={() => router.push('/product/${item.id}')}>
+      onPress={() => router.push(`/product/${item.id}` as any)}>
       <View style={styles.productImage}>
         <Text style={styles.productImagePlaceholder}>📦</Text>
       </View>

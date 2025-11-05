@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { productAPI, cartAPI } from '../../src/api/apiClient';
+import { Ionicons } from '@expo/vector-icons';
+import { productAPI, cartAPI, wishlistAPI } from '../../src/api/apiClient';
 import { COLORS, SIZES } from '../../src/utils/constants';
 import { formatPrice } from '../../src/utils/formatters';
 
@@ -19,6 +20,8 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [togglingWishlist, setTogglingWishlist] = useState(false);
 
   useEffect(() => {
     loadProduct();
@@ -28,13 +31,39 @@ export default function ProductDetailScreen() {
     try {
       const response = await productAPI.getById(Number(id));
       if (response.data.success) {
-        setProduct(response.data.data.product);
+        const productData = response.data.data.product;
+        setProduct(productData);
+        setIsInWishlist(productData.is_wishlisted || false);
       }
     } catch (error) {
       console.error('Error loading product:', error);
       Alert.alert('Error', 'Failed to load product');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    if (!product) return;
+
+    setTogglingWishlist(true);
+    try {
+      const response = await wishlistAPI.toggle({
+        product_id: product.id,
+      });
+
+      if (response.data.success) {
+        setIsInWishlist(!isInWishlist);
+        Alert.alert(
+          'Success',
+          isInWishlist ? 'Removed from wishlist' : 'Added to wishlist'
+        );
+      }
+    } catch (error: any) {
+      console.error('Error toggling wishlist:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update wishlist');
+    } finally {
+      setTogglingWishlist(false);
     }
   };
 
@@ -101,10 +130,31 @@ export default function ProductDetailScreen() {
           <View style={styles.image}>
             <Text style={styles.imagePlaceholder}>📦</Text>
           </View>
+          
+          {/* Wishlist Button - Floating on image */}
+          <TouchableOpacity
+            style={styles.wishlistButton}
+            onPress={handleToggleWishlist}
+            disabled={togglingWishlist}>
+            {togglingWishlist ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Ionicons
+                name={isInWishlist ? 'heart' : 'heart-outline'}
+                size={28}
+                color={isInWishlist ? '#FF3B30' : COLORS.gray}
+              />
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.category}>{product.category?.name}</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.category}>{product.category?.name}</Text>
+            </View>
+          </View>
+
           <Text style={styles.name}>{product.name}</Text>
 
           <View style={styles.priceRow}>
@@ -194,6 +244,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     backgroundColor: '#f5f5f5',
+    position: 'relative',
   },
   image: {
     width: '100%',
@@ -204,14 +255,42 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     fontSize: 80,
   },
+  wishlistButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   content: {
     padding: 20,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  categoryBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
   category: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: COLORS.primary,
     textTransform: 'uppercase',
-    marginBottom: 5,
+    fontWeight: '600',
   },
   name: {
     fontSize: 24,
