@@ -22,8 +22,8 @@ interface Voucher {
   code: string;
   name: string;
   description: string;
-  discount_type: 'percentage' | 'fixed';
-  discount_value: number;
+  type: 'percentage' | 'fixed';
+  value: number;
   min_purchase: number;
   max_discount?: number;
   valid_until: string;
@@ -97,8 +97,8 @@ export default function CheckoutScreen() {
 
     let discountAmount = 0;
     
-    if (voucher.discount_type === 'percentage') {
-      discountAmount = (subtotal * voucher.discount_value) / 100;
+    if (voucher.type === 'percentage') {
+      discountAmount = (subtotal * voucher.value) / 100;
       
       // Apply max discount if exists
       if (voucher.max_discount && discountAmount > voucher.max_discount) {
@@ -106,7 +106,7 @@ export default function CheckoutScreen() {
       }
     } else {
       // Fixed discount
-      discountAmount = voucher.discount_value;
+      discountAmount = voucher.value;
     }
 
     return Math.min(discountAmount, subtotal);
