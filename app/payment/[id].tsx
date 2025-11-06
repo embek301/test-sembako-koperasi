@@ -153,28 +153,35 @@ export default function PaymentScreen() {
 
       try {
         const orderId = Number(id);
-        const response = await paymentAPI.checkStatus(orderId);
+        
+        // ← Get BOTH payment status AND order details
+        const [statusResponse, orderResponse] = await Promise.all([
+          paymentAPI.checkStatus(orderId),
+          orderAPI.getById(orderId)
+        ]);
 
-        console.log("💳 Payment status response:", response.data);
+        console.log("💳 Payment status response:", statusResponse.data);
+        console.log("📦 Order details response:", orderResponse.data);
 
-        if (response.data.success) {
-          const data = response.data.data;
+        if (statusResponse.data.success && orderResponse.data.success) {
+          const statusData = statusResponse.data.data;
+          const orderData = orderResponse.data.data;
 
           // Check if payment is successful
           if (
-            data.payment_status === "paid" ||
-            data.order_status === "paid" ||
-            data.payment?.status === "success"
+            statusData.payment_status === "paid" ||
+            statusData.order_status === "paid" ||
+            statusData.payment?.status === "success"
           ) {
             clearInterval(checkInterval);
             setIsCheckingStatus(false);
 
-            // ← FIX: Get total price properly
-            const totalPrice = data.total_price || data.order?.total_price || 0;
-            const orderNumber = data.order_number || id.toString();
+            // ← GET TOTAL PRICE FROM ORDER DATA
+            const totalPrice = orderData.total_price || 0;
+            const orderNumber = orderData.order_number || id.toString();
 
-            const paymentMethod = data.payment?.payment_type
-              ? data.payment.payment_type.replace("_", " ").toUpperCase()
+            const paymentMethod = statusData.payment?.payment_type
+              ? statusData.payment.payment_type.replace("_", " ").toUpperCase()
               : "Online Payment";
 
             console.log("✅ Payment confirmed!");

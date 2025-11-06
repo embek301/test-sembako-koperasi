@@ -62,7 +62,7 @@ export default function RootLayout() {
           }} 
         />
         <Stack.Screen 
-          name="profile/_layouts" 
+          name="profile" 
           options={{ headerShown: false }} 
         />
         </Stack>

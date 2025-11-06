@@ -12,21 +12,25 @@ export default function AddressesLayout() {
         headerTitleStyle: {
           fontWeight: '600',
         },
+        headerBackTitle: 'Back', // ← Add back title
+        contentStyle: {
+          backgroundColor: '#F2F2F7',
+        },
       }}
     >
       <Stack.Screen 
         name="index" 
         options={{ 
-          title: 'Alamat Saya',
-          headerBackTitle: 'Back',
+          title: 'My Addresses',
+          headerShown: true, // ← Explicitly show
         }} 
       />
       <Stack.Screen 
-        name="[id]" 
-        options={{ 
-          title: 'Edit Alamat',
-          headerBackTitle: 'Back',
-        }} 
+        name="[id]"
+        options={{
+          title: 'Address',
+          headerShown: true,
+        }}
       />
     </Stack>
   );

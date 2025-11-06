@@ -12,6 +12,7 @@ export default function ProfileLayout() {
         headerTitleStyle: {
           fontWeight: '600',
         },
+        headerBackTitle: 'Back', // ← Global back title
         contentStyle: {
           backgroundColor: '#F2F2F7',
         },
@@ -21,49 +22,48 @@ export default function ProfileLayout() {
         name="edit" 
         options={{ 
           title: 'Edit Profile',
-          headerBackTitle: 'Back',
+          headerShown: true, // ← Explicitly show header
         }} 
       />
       <Stack.Screen 
         name="addresses" 
         options={{ 
-          title: 'Alamat Saya',
-          headerBackTitle: 'Back',
+          headerShown: false, // ← Has its own nested layout
         }} 
       />
       <Stack.Screen 
         name="wishlist" 
         options={{ 
           title: 'Wishlist',
-          headerBackTitle: 'Back',
+          headerShown: true,
         }} 
       />
       <Stack.Screen 
         name="change-password" 
         options={{ 
-          title: 'Ganti Password',
-          headerBackTitle: 'Back',
+          title: 'Change Password',
+          headerShown: true,
         }} 
       />
       <Stack.Screen 
         name="notifications" 
         options={{ 
-          title: 'Notifikasi',
-          headerBackTitle: 'Back',
+          title: 'Notifications',
+          headerShown: true,
         }} 
       />
       <Stack.Screen 
         name="help" 
         options={{ 
-          title: 'Bantuan',
-          headerBackTitle: 'Back',
+          title: 'Help & Support',
+          headerShown: true,
         }} 
       />
       <Stack.Screen 
         name="about" 
         options={{ 
-          title: 'Tentang Aplikasi',
-          headerBackTitle: 'Back',
+          title: 'About',
+          headerShown: true,
         }} 
       />
     </Stack>

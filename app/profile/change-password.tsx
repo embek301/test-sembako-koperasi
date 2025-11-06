@@ -8,148 +8,84 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { authAPI } from '../../src/api/apiClient';
 import { COLORS, SIZES } from '../../src/utils/constants';
 
-export default function EditProfileScreen() {
-  const { user, updateUser } = useAuth();
+export default function ChangePasswordScreen() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatar || null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    address: user?.address || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
-  const pickImage = async () => {
-    try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access gallery is required!');
-        return;
-      }
-
-      // Pick image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
-    }
-  };
-
-  const takePhoto = async () => {
-    try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera is required!');
-        return;
-      }
-
-      // Take photo
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
-    }
-  };
-
-  const showImageOptions = () => {
-    Alert.alert(
-      'Change Profile Picture',
-      'Choose an option',
-      [
-        {
-          text: 'Take Photo',
-          onPress: takePhoto,
-        },
-        {
-          text: 'Choose from Gallery',
-          onPress: pickImage,
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
-  };
-
-  const handleSave = async () => {
-    // Validation
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
+  const validateForm = () => {
+    if (!formData.currentPassword.trim()) {
+      Alert.alert('Error', 'Current password is required');
+      return false;
     }
 
-    if (!formData.phone.trim()) {
-      Alert.alert('Error', 'Phone number is required');
+    if (!formData.newPassword.trim()) {
+      Alert.alert('Error', 'New password is required');
+      return false;
+    }
+
+    if (formData.newPassword.length < 6) {
+      Alert.alert('Error', 'New password must be at least 6 characters');
+      return false;
+    }
+
+    if (formData.newPassword !== formData.confirmPassword) {
+      Alert.alert('Error', 'New password and confirmation do not match');
+      return false;
+    }
+
+    if (formData.currentPassword === formData.newPassword) {
+      Alert.alert('Error', 'New password must be different from current password');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleChangePassword = async () => {
+    if (!validateForm()) {
       return;
     }
 
     setLoading(true);
     try {
-      // Create FormData for multipart/form-data
-      const data = new FormData();
-      data.append('name', formData.name);
-      data.append('phone', formData.phone);
-      if (formData.address) {
-        data.append('address', formData.address);
-      }
-
-      // Add avatar if changed
-      if (avatarUri && avatarUri !== user?.avatar) {
-        const filename = avatarUri.split('/').pop() || 'avatar.jpg';
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-        data.append('avatar', {
-          uri: avatarUri,
-          name: filename,
-          type,
-        } as any);
-      }
-
-      const response = await authAPI.updateProfile(data);
+      const response = await authAPI.changePassword({
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      });
 
       if (response.data.success) {
-        // Update local user data
-        await updateUser(response.data.data);
-        
-        Alert.alert('Success', 'Profile updated successfully', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        Alert.alert(
+          'Success', 
+          'Password changed successfully', 
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                router.back();
+              }
+            }
+          ]
+        );
       }
     } catch (error: any) {
-      console.error('Error updating profile:', error);
-      const message = error.response?.data?.message || 'Failed to update profile';
+      console.error('Error changing password:', error);
+      const message = error.response?.data?.message || 'Failed to change password';
       Alert.alert('Error', message);
     } finally {
       setLoading(false);
@@ -159,93 +95,130 @@ export default function EditProfileScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        {/* Avatar Section */}
-        <View style={styles.avatarSection}>
-          <TouchableOpacity onPress={showImageOptions} style={styles.avatarContainer}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </Text>
-              </View>
-            )}
-            <View style={styles.cameraButton}>
-              <Ionicons name="camera" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.avatarHint}>Tap to change profile picture</Text>
+        {/* Info Section */}
+        <View style={styles.infoBox}>
+          <Ionicons name="information-circle" size={24} color={COLORS.primary} />
+          <Text style={styles.infoText}>
+            For security reasons, please enter your current password to set a new one.
+          </Text>
         </View>
 
         {/* Form Section */}
         <View style={styles.formSection}>
+          {/* Current Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-              placeholder="Enter your full name"
-              autoCapitalize="words"
-            />
+            <Text style={styles.label}>Current Password *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={formData.currentPassword}
+                onChangeText={(text) => setFormData({ ...formData, currentPassword: text })}
+                placeholder="Enter current password"
+                secureTextEntry={!showCurrentPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+                <Ionicons
+                  name={showCurrentPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color={COLORS.gray}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          {/* New Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={user?.email}
-              editable={false}
-              placeholder="Email address"
-            />
-            <Text style={styles.hint}>Email cannot be changed</Text>
+            <Text style={styles.label}>New Password *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={formData.newPassword}
+                onChangeText={(text) => setFormData({ ...formData, newPassword: text })}
+                placeholder="Enter new password"
+                secureTextEntry={!showNewPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowNewPassword(!showNewPassword)}>
+                <Ionicons
+                  name={showNewPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color={COLORS.gray}
+                />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.hint}>Minimum 6 characters</Text>
           </View>
 
+          {/* Confirm Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
-              placeholder="08123456789"
-              keyboardType="phone-pad"
-              maxLength={13}
-            />
+            <Text style={styles.label}>Confirm New Password *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={formData.confirmPassword}
+                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+                placeholder="Confirm new password"
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color={COLORS.gray}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={formData.address}
-              onChangeText={(text) => setFormData({ ...formData, address: text })}
-              placeholder="Enter your address"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Role</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{user?.role?.toUpperCase() || 'MEMBER'}</Text>
+          {/* Password Requirements */}
+          <View style={styles.requirementsBox}>
+            <Text style={styles.requirementsTitle}>Password Requirements:</Text>
+            <View style={styles.requirementItem}>
+              <Ionicons 
+                name={formData.newPassword.length >= 6 ? 'checkmark-circle' : 'ellipse-outline'} 
+                size={16} 
+                color={formData.newPassword.length >= 6 ? COLORS.success : COLORS.gray} 
+              />
+              <Text style={styles.requirementText}>At least 6 characters</Text>
+            </View>
+            <View style={styles.requirementItem}>
+              <Ionicons 
+                name={formData.newPassword && formData.newPassword === formData.confirmPassword ? 'checkmark-circle' : 'ellipse-outline'} 
+                size={16} 
+                color={formData.newPassword && formData.newPassword === formData.confirmPassword ? COLORS.success : COLORS.gray} 
+              />
+              <Text style={styles.requirementText}>Passwords match</Text>
+            </View>
+            <View style={styles.requirementItem}>
+              <Ionicons 
+                name={formData.currentPassword && formData.newPassword && formData.currentPassword !== formData.newPassword ? 'checkmark-circle' : 'ellipse-outline'} 
+                size={16} 
+                color={formData.currentPassword && formData.newPassword && formData.currentPassword !== formData.newPassword ? COLORS.success : COLORS.gray} 
+              />
+              <Text style={styles.requirementText}>Different from current password</Text>
             </View>
           </View>
         </View>
 
-        {/* Save Button */}
+        {/* Change Password Button */}
         <TouchableOpacity
-          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
+          style={[styles.changeButton, loading && styles.changeButtonDisabled]}
+          onPress={handleChangePassword}
           disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+              <Ionicons name="lock-closed" size={24} color="#fff" />
+              <Text style={styles.changeButtonText}>Change Password</Text>
             </>
           )}
         </TouchableOpacity>
@@ -269,53 +242,20 @@ const styles = StyleSheet.create({
   content: {
     padding: SIZES.padding,
   },
-  avatarSection: {
-    alignItems: 'center',
-    marginVertical: 30,
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#E3F2FD',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'flex-start',
   },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: COLORS.primary,
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: COLORS.primary,
-  },
-  avatarText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: COLORS.primary,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  avatarHint: {
-    fontSize: 12,
-    color: COLORS.gray,
-    marginTop: 5,
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    marginLeft: 10,
+    lineHeight: 20,
   },
   formSection: {
     backgroundColor: '#fff',
@@ -332,40 +272,50 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 8,
   },
-  input: {
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.background,
     borderRadius: SIZES.borderRadius,
-    padding: 15,
-    fontSize: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  inputDisabled: {
-    backgroundColor: '#f0f0f0',
-    color: COLORS.gray,
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
   },
-  textArea: {
-    height: 80,
-    paddingTop: 12,
+  eyeButton: {
+    padding: 15,
   },
   hint: {
     fontSize: 12,
     color: COLORS.lightGray,
     marginTop: 5,
   },
-  roleBadge: {
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+  requirementsBox: {
+    backgroundColor: COLORS.background,
+    padding: 15,
     borderRadius: 8,
-    alignSelf: 'flex-start',
+    marginTop: 10,
   },
-  roleText: {
-    color: COLORS.primary,
+  requirementsTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 10,
   },
-  saveButton: {
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  requirementText: {
+    fontSize: 13,
+    color: COLORS.text,
+    marginLeft: 8,
+  },
+  changeButton: {
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
@@ -374,10 +324,10 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.borderRadius,
     marginBottom: 10,
   },
-  saveButtonDisabled: {
+  changeButtonDisabled: {
     backgroundColor: COLORS.gray,
   },
-  saveButtonText: {
+  changeButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
