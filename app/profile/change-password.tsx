@@ -11,12 +11,10 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../src/context/AuthContext';
 import { authAPI } from '../../src/api/apiClient';
 import { COLORS, SIZES } from '../../src/utils/constants';
 
 export default function ChangePasswordScreen() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -64,9 +62,11 @@ export default function ChangePasswordScreen() {
 
     setLoading(true);
     try {
+      // Backend Laravel biasanya expect: current_password, password, password_confirmation
       const response = await authAPI.changePassword({
-        currentPassword: formData.currentPassword,
-        newPassword: formData.newPassword,
+        current_password: formData.currentPassword,
+        password: formData.newPassword,
+        password_confirmation: formData.confirmPassword,
       });
 
       if (response.data.success) {
@@ -77,6 +77,12 @@ export default function ChangePasswordScreen() {
             { 
               text: 'OK', 
               onPress: () => {
+                // Reset form
+                setFormData({
+                  currentPassword: '',
+                  newPassword: '',
+                  confirmPassword: '',
+                });
                 router.back();
               }
             }
@@ -85,8 +91,16 @@ export default function ChangePasswordScreen() {
       }
     } catch (error: any) {
       console.error('Error changing password:', error);
-      const message = error.response?.data?.message || 'Failed to change password';
-      Alert.alert('Error', message);
+      
+      // Handle validation errors
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const errorMessages = Object.values(errors).flat().join('\n');
+        Alert.alert('Validation Error', errorMessages);
+      } else {
+        const message = error.response?.data?.message || 'Failed to change password';
+        Alert.alert('Error', message);
+      }
     } finally {
       setLoading(false);
     }
