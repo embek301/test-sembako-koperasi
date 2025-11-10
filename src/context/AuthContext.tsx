@@ -10,6 +10,9 @@ interface User {
   role?: string;
   address?: string;
   avatar?: string;
+  // Merchant-specific properties
+  store_name?: string;
+  is_verified?: boolean;
 }
 
 interface AuthContextType {
