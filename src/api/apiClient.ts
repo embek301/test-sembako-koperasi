@@ -46,6 +46,7 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     console.error("❌ Error:", error.config?.url, error.response?.status);
+     console.error("❌ Error data:", error.response?.data);
 
     // Log validation errors for debugging
     if (error.response?.status === 422) {

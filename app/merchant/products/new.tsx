@@ -36,6 +36,7 @@ export default function NewProductScreen() {
     stock: '',
     unit: '',
     min_order: '1',
+    sku: '', // ← Added
     is_active: true,
   });
 
@@ -57,6 +58,29 @@ export default function NewProductScreen() {
     }
   };
 
+  // ✅ Auto-generate SKU based on product name
+  const generateSKU = (productName: string): string => {
+    if (!productName) return '';
+    
+    const prefix = productName
+      .replace(/[^a-zA-Z]/g, '')
+      .substring(0, 3)
+      .toUpperCase();
+    
+    const timestamp = Date.now().toString().slice(-6);
+    return `${prefix}-${timestamp}`;
+  };
+
+  // ✅ Update name and auto-fill SKU if empty
+  const handleNameChange = (text: string) => {
+    setFormData(prev => ({
+      ...prev,
+      name: text,
+      // Auto-generate SKU jika masih kosong
+      sku: prev.sku ? prev.sku : generateSKU(text)
+    }));
+  };
+
   const pickImages = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -74,7 +98,7 @@ export default function NewProductScreen() {
 
       if (!result.canceled) {
         const newImages = result.assets.map(asset => asset.uri);
-        setImages([...images, ...newImages].slice(0, 5)); // Max 5 images
+        setImages([...images, ...newImages].slice(0, 5));
       }
     } catch (error) {
       console.error('Error picking images:', error);
@@ -109,11 +133,16 @@ export default function NewProductScreen() {
       return;
     }
 
+    // ✅ Ensure SKU exists
+    let sku = formData.sku.trim();
+    if (!sku) {
+      sku = generateSKU(formData.name);
+    }
+
     setLoading(true);
     try {
       const data = new FormData();
       
-      // Add basic fields
       data.append('name', formData.name);
       data.append('description', formData.description);
       data.append('category_id', formData.category_id);
@@ -121,6 +150,7 @@ export default function NewProductScreen() {
       data.append('stock', formData.stock);
       data.append('unit', formData.unit);
       data.append('min_order', formData.min_order);
+      data.append('sku', sku); // ← Send SKU
       data.append('is_active', formData.is_active ? '1' : '0');
 
       // Add images
@@ -134,6 +164,8 @@ export default function NewProductScreen() {
           type: `image/${fileType}`,
         } as any);
       });
+
+      console.log('📤 Sending product data with SKU:', sku);
 
       const response = await merchantAPI.createProduct(data);
 
@@ -207,9 +239,22 @@ export default function NewProductScreen() {
             <TextInput
               style={styles.input}
               value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              onChangeText={handleNameChange} 
               placeholder="Enter product name"
             />
+          </View>
+
+          {/* ✅ SKU Input - Auto-filled */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>SKU (Stock Keeping Unit)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.sku}
+              onChangeText={(text) => setFormData({ ...formData, sku: text.toUpperCase() })}
+              placeholder="Auto-generated"
+              autoCapitalize="characters"
+            />
+            <Text style={styles.hint}>Unique product code (auto-generated if empty)</Text>
           </View>
 
           <View style={styles.inputGroup}>
