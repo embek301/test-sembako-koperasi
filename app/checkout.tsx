@@ -12,11 +12,25 @@ import {
   FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { cartAPI, addressAPI, orderAPI, voucherAPI } from '../src/api/apiClient';
 import { COLORS, SIZES } from '../src/utils/constants';
 import { formatPrice } from '../src/utils/formatters';
 import { useNotifications } from '../src/context/NotificationContext';
+
+interface Address {
+  id: number;
+  recipient_name: string;
+  phone: string;
+  address: string;
+  province: string;
+  city: string;
+  district: string;
+  postal_code: string;
+  label: string;
+  is_default: boolean;
+}
 
 interface Voucher {
   id: number;
@@ -34,11 +48,14 @@ interface Voucher {
 
 export default function CheckoutScreen() {
   const [cartData, setCartData] = useState<any>(null);
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [selectedAddress, setSelectedAddress] = useState<any>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('midtrans');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  
+  // Address Modal
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   
   // Voucher states
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
@@ -48,9 +65,19 @@ export default function CheckoutScreen() {
   const [applyingVoucher, setApplyingVoucher] = useState(false);
   const [discount, setDiscount] = useState(0);
 
+  const { sendOrderNotification, sendPaymentNotification } = useNotifications();
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Reload addresses when screen is focused (after adding new address)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 Checkout screen focused - reloading addresses');
+      loadAddresses();
+    }, [])
+  );
 
   const loadData = async () => {
     try {
@@ -91,6 +118,38 @@ export default function CheckoutScreen() {
     }
   };
 
+  // Separate function to reload only addresses
+  const loadAddresses = async () => {
+    try {
+      const response = await addressAPI.getAll();
+      if (response.data.success) {
+        const addressList = response.data.data;
+        setAddresses(addressList);
+        
+        // Update selected address if it was deleted or changed
+        if (selectedAddress) {
+          const stillExists = addressList.find((addr: any) => addr.id === selectedAddress.id);
+          if (stillExists) {
+            // Update with latest data
+            setSelectedAddress(stillExists);
+          } else {
+            // Address was deleted, select default or first
+            const defaultAddress = addressList.find((addr: any) => addr.is_default);
+            setSelectedAddress(defaultAddress || addressList[0] || null);
+          }
+        } else if (addressList.length > 0) {
+          // No address selected but addresses exist, select default or first
+          const defaultAddress = addressList.find((addr: any) => addr.is_default);
+          setSelectedAddress(defaultAddress || addressList[0]);
+        }
+        
+        console.log('✅ Addresses reloaded:', addressList.length);
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+    }
+  };
+
   const calculateDiscount = (voucher: Voucher, subtotal: number): number => {
     if (subtotal < voucher.min_purchase) {
       return 0;
@@ -101,16 +160,19 @@ export default function CheckoutScreen() {
     if (voucher.type === 'percentage') {
       discountAmount = (subtotal * voucher.value) / 100;
       
-      // Apply max discount if exists
       if (voucher.max_discount && discountAmount > voucher.max_discount) {
         discountAmount = voucher.max_discount;
       }
     } else {
-      // Fixed discount
       discountAmount = voucher.value;
     }
 
     return Math.min(discountAmount, subtotal);
+  };
+
+  const selectAddress = (address: Address) => {
+    setSelectedAddress(address);
+    setAddressModalVisible(false);
   };
 
   const applyVoucherCode = async () => {
@@ -178,14 +240,11 @@ export default function CheckoutScreen() {
 
     setProcessing(true);
     try {
-      console.log('📦 Creating order...');
-      
       const orderData: any = {
         address_id: selectedAddress.id,
         payment_method: paymentMethod,
       };
 
-      // Add voucher if selected
       if (selectedVoucher) {
         orderData.voucher_code = selectedVoucher.code;
       }
@@ -194,18 +253,14 @@ export default function CheckoutScreen() {
 
       if (orderResponse.data.success) {
         const order = orderResponse.data.data;
-        console.log('✅ Order created:', order.id);
         await sendOrderNotification(order.order_number, 'pending');
-        // Clear cart
+        
         try {
-          console.log('🧹 Clearing cart...');
           await cartAPI.clearCart();
-          console.log('✅ Cart cleared successfully');
         } catch (clearError) {
           console.error('⚠️ Error clearing cart:', clearError);
         }
 
-        // Show success and navigate
         Alert.alert(
           'Order Created!',
           `Order #${order.order_number} has been created successfully!${
@@ -242,7 +297,66 @@ export default function CheckoutScreen() {
       setProcessing(false);
     }
   };
-  const { sendOrderNotification } = useNotifications();
+
+  const getLabelIcon = (label: string) => {
+    const icons: { [key: string]: string } = {
+      home: 'home',
+      office: 'business',
+      apartment: 'location',
+      other: 'location-outline',
+    };
+    return icons[label] || 'location-outline';
+  };
+
+  const getLabelText = (label: string) => {
+    const labels: { [key: string]: string } = {
+      home: 'Home',
+      office: 'Office',
+      apartment: 'Apartment',
+      other: 'Other',
+    };
+    return labels[label] || 'Other';
+  };
+
+  const renderAddressItem = ({ item }: { item: Address }) => {
+    const isSelected = selectedAddress?.id === item.id;
+    
+    return (
+      <TouchableOpacity
+        style={[styles.addressItem, isSelected && styles.addressItemSelected]}
+        onPress={() => selectAddress(item)}>
+        <View style={styles.addressItemHeader}>
+          <View style={styles.addressLabelContainer}>
+            <Ionicons 
+              name={getLabelIcon(item.label) as any} 
+              size={20} 
+              color={COLORS.primary} 
+            />
+            <Text style={styles.addressLabel}>{getLabelText(item.label)}</Text>
+          </View>
+          {item.is_default && (
+            <View style={styles.defaultBadge}>
+              <Text style={styles.defaultBadgeText}>Default</Text>
+            </View>
+          )}
+          {isSelected && (
+            <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+          )}
+        </View>
+        
+        <Text style={styles.addressItemName}>{item.recipient_name}</Text>
+        <Text style={styles.addressItemPhone}>{item.phone}</Text>
+        <Text style={styles.addressItemText}>{item.address}</Text>
+        <Text style={styles.addressItemText}>
+          {item.district}, {item.city}
+        </Text>
+        <Text style={styles.addressItemText}>
+          {item.province}, {item.postal_code}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderVoucherItem = ({ item }: { item: Voucher }) => {
     const isEligible = cartData.subtotal >= item.min_purchase;
     const discountAmount = calculateDiscount(item, cartData.subtotal);
@@ -372,13 +486,30 @@ export default function CheckoutScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Delivery Address</Text>
-            <TouchableOpacity onPress={() => router.push('/profile/addresses' as any)}>
+            <TouchableOpacity onPress={() => setAddressModalVisible(true)}>
               <Text style={styles.changeText}>Change</Text>
             </TouchableOpacity>
           </View>
           
           {selectedAddress ? (
             <View style={styles.addressCard}>
+              <View style={styles.addressCardHeader}>
+                <View style={styles.addressLabelContainer}>
+                  <Ionicons 
+                    name={getLabelIcon(selectedAddress.label) as any} 
+                    size={18} 
+                    color={COLORS.primary} 
+                  />
+                  <Text style={styles.addressCardLabel}>
+                    {getLabelText(selectedAddress.label)}
+                  </Text>
+                </View>
+                {selectedAddress.is_default && (
+                  <View style={styles.defaultBadge}>
+                    <Text style={styles.defaultBadgeText}>Default</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.addressName}>{selectedAddress.recipient_name}</Text>
               <Text style={styles.addressPhone}>{selectedAddress.phone}</Text>
               <Text style={styles.addressText}>{selectedAddress.address}</Text>
@@ -487,6 +618,56 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Address Selection Modal */}
+      <Modal
+        visible={addressModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setAddressModalVisible(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Delivery Address</Text>
+            <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+              <Ionicons name="close" size={28} color={COLORS.text} />
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={addresses}
+            renderItem={renderAddressItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.addressList}
+            ListEmptyComponent={
+              <View style={styles.emptyAddresses}>
+                <Ionicons name="location-outline" size={64} color={COLORS.lightGray} />
+                <Text style={styles.emptyAddressesText}>No addresses found</Text>
+                <TouchableOpacity
+                  style={styles.addNewAddressButton}
+                  onPress={() => {
+                    setAddressModalVisible(false);
+                    router.push('/profile/addresses/new' as any);
+                  }}>
+                  <Text style={styles.addNewAddressButtonText}>+ Add New Address</Text>
+                </TouchableOpacity>
+              </View>
+            }
+            ListFooterComponent={
+              addresses.length > 0 ? (
+                <TouchableOpacity
+                  style={styles.addNewAddressButton}
+                  onPress={() => {
+                    setAddressModalVisible(false);
+                    router.push('/profile/addresses/new' as any);
+                  }}>
+                  <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+                  <Text style={styles.addNewAddressButtonText}>Add New Address</Text>
+                </TouchableOpacity>
+              ) : null
+            }
+          />
+        </View>
+      </Modal>
 
       {/* Voucher Modal */}
       <Modal
@@ -681,6 +862,40 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  addressCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addressLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addressCardLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  addressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  defaultBadge: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  defaultBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   addressName: {
     fontSize: 16,
@@ -851,6 +1066,83 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
+  
+  // Address Modal Styles
+  addressList: {
+    padding: 15,
+  },
+  addressItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addressItemSelected: {
+    borderColor: COLORS.success,
+    backgroundColor: COLORS.primaryLight,
+  },
+  addressItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  addressItemName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  addressItemPhone: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 8,
+  },
+  addressItemText: {
+    fontSize: 13,
+    color: COLORS.gray,
+    marginBottom: 2,
+    lineHeight: 18,
+  },
+  emptyAddresses: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyAddressesText: {
+    fontSize: 16,
+    color: COLORS.gray,
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  addNewAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 10,
+    marginHorizontal: 15,
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  addNewAddressButtonText: {
+    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  
+  // Voucher Modal Styles
   voucherInputSection: {
     backgroundColor: '#fff',
     padding: 20,

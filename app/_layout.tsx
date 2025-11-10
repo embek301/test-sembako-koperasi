@@ -63,7 +63,7 @@ export default function RootLayout() {
         />
         <Stack.Screen 
           name="profile" 
-          options={{ headerShown: false }} 
+          options={{ headerShown: false,headerBackTitle: 'Back' }} 
         />
         </Stack>
       </AuthProvider>
