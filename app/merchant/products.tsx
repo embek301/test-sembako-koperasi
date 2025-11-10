@@ -1,4 +1,3 @@
-// app/(merchant)/products.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,10 +10,59 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { merchantAPI } from '../../src/api/apiClient';
-import { COLORS } from '../../src/utils/constants';
-import { formatPrice } from '../../src/utils/formatters';
+
+// Mock API untuk demo
+const mockMerchantAPI = {
+  getProducts: async (params?: any) => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return {
+      data: {
+        success: true,
+        data: {
+          data: [
+            {
+              id: 1,
+              name: 'Beras Premium 5kg',
+              price: 75000,
+              stock: 100,
+              unit: 'kg',
+              is_active: true,
+              category: { name: 'Bahan Pokok' }
+            },
+            {
+              id: 2,
+              name: 'Minyak Goreng 2L',
+              price: 35000,
+              stock: 50,
+              unit: 'liter',
+              is_active: true,
+              category: { name: 'Minyak' }
+            },
+            {
+              id: 3,
+              name: 'Gula Pasir 1kg',
+              price: 15000,
+              stock: 0,
+              unit: 'kg',
+              is_active: false,
+              category: { name: 'Bahan Pokok' }
+            }
+          ]
+        }
+      }
+    };
+  },
+  updateProduct: async (id: number, data: any) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return { data: { success: true } };
+  },
+  deleteProduct: async (id: number) => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return { data: { success: true } };
+  }
+};
 
 interface Product {
   id: number;
@@ -41,12 +89,21 @@ export default function MerchantProductsScreen() {
   const loadProducts = async () => {
     try {
       const params = filter !== 'all' ? { status: filter } : {};
-      const response = await merchantAPI.getProducts(params);
+      const response = await mockMerchantAPI.getProducts(params);
       
       if (response.data.success) {
-        setProducts(response.data.data.data || response.data.data);
+        let productList = response.data.data.data || response.data.data;
+        
+        // Apply filter
+        if (filter === 'active') {
+          productList = productList.filter((p: Product) => p.is_active);
+        } else if (filter === 'inactive') {
+          productList = productList.filter((p: Product) => !p.is_active);
+        }
+        
+        setProducts(productList);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading products:', error);
       Alert.alert('Error', 'Failed to load products');
     } finally {
@@ -71,7 +128,7 @@ export default function MerchantProductsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await merchantAPI.deleteProduct(product.id);
+              await mockMerchantAPI.deleteProduct(product.id);
               Alert.alert('Success', 'Product deleted successfully');
               loadProducts();
             } catch (error) {
@@ -86,7 +143,7 @@ export default function MerchantProductsScreen() {
 
   const toggleProductStatus = async (product: Product) => {
     try {
-      await merchantAPI.updateProduct(product.id, {
+      await mockMerchantAPI.updateProduct(product.id, {
         is_active: !product.is_active,
       });
       Alert.alert('Success', 'Product status updated');
@@ -95,6 +152,14 @@ export default function MerchantProductsScreen() {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'Failed to update product status');
     }
+  };
+
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(price);
   };
 
   const renderProduct = ({ item }: { item: Product }) => (
@@ -127,28 +192,22 @@ export default function MerchantProductsScreen() {
         <View style={styles.productActions}>
           <TouchableOpacity
             style={[styles.actionButton, styles.editButton]}
-            onPress={() => router.push(`/merchant/products/${item.id}/edit` as any)}>
-            <Ionicons name="create" size={18} color="#2196F3" />
-            <Text style={styles.editButtonText}>Edit</Text>
+            onPress={() => Alert.alert('Edit', `Edit product: ${item.name}`)}>
+            <Text style={styles.actionButtonText}>✏️ Edit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.toggleButton]}
             onPress={() => toggleProductStatus(item)}>
-            <Ionicons 
-              name={item.is_active ? 'eye-off' : 'eye'} 
-              size={18} 
-              color="#FF9800" 
-            />
-            <Text style={styles.toggleButtonText}>
-              {item.is_active ? 'Deactivate' : 'Activate'}
+            <Text style={styles.actionButtonText}>
+              {item.is_active ? '👁️ Hide' : '👁️ Show'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
             onPress={() => handleDeleteProduct(item)}>
-            <Ionicons name="trash" size={18} color="#F44336" />
+            <Text style={styles.actionButtonText}>🗑️</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -158,7 +217,8 @@ export default function MerchantProductsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color="#ad190f" />
+        <Text style={styles.loadingText}>Loading products...</Text>
       </View>
     );
   }
@@ -171,7 +231,7 @@ export default function MerchantProductsScreen() {
           style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
           onPress={() => setFilter('all')}>
           <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-            All ({products.length})
+            All
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -196,11 +256,11 @@ export default function MerchantProductsScreen() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#ad190f']} />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="cube-outline" size={64} color={COLORS.lightGray} />
+            <Text style={styles.emptyIcon}>📦</Text>
             <Text style={styles.emptyText}>No products yet</Text>
             <Text style={styles.emptySubtext}>
               Add your first product to start selling
@@ -212,8 +272,8 @@ export default function MerchantProductsScreen() {
       {/* Add Product FAB */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/merchant/products/new' as any)}>
-        <Ionicons name="add" size={28} color="#fff" />
+        onPress={() => Alert.alert('Add Product', 'Feature coming soon')}>
+        <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </View>
   );
@@ -228,6 +288,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
   },
   filterContainer: {
     flexDirection: 'row',
@@ -245,15 +310,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterButtonActive: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: '#FFE5E5',
   },
   filterText: {
     fontSize: 14,
-    color: COLORS.gray,
+    color: '#666',
     fontWeight: '600',
   },
   filterTextActive: {
-    color: COLORS.primary,
+    color: '#ad190f',
   },
   listContent: {
     padding: 15,
@@ -295,7 +360,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: '#333',
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -310,18 +375,18 @@ const styles = StyleSheet.create({
   },
   productCategory: {
     fontSize: 11,
-    color: COLORS.gray,
+    color: '#999',
     marginBottom: 5,
   },
   productPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: '#ad190f',
     marginBottom: 3,
   },
   productStock: {
     fontSize: 12,
-    color: COLORS.gray,
+    color: '#666',
     marginBottom: 10,
   },
   productActions: {
@@ -329,48 +394,44 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
+    flex: 1,
     paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 6,
-    gap: 4,
+    alignItems: 'center',
   },
   editButton: {
     backgroundColor: '#E3F2FD',
   },
-  editButtonText: {
-    fontSize: 12,
-    color: '#2196F3',
-    fontWeight: '600',
-  },
   toggleButton: {
     backgroundColor: '#FFF3E0',
   },
-  toggleButtonText: {
-    fontSize: 12,
-    color: '#FF9800',
-    fontWeight: '600',
-  },
   deleteButton: {
     backgroundColor: '#FFEBEE',
-    paddingHorizontal: 12,
+    flex: 0.3,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 60,
   },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.gray,
-    marginTop: 15,
+    color: '#999',
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: COLORS.lightGray,
+    color: '#ccc',
     textAlign: 'center',
-    marginTop: 5,
   },
   fab: {
     position: 'absolute',
@@ -379,7 +440,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#ad190f',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -387,5 +448,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  fabText: {
+    fontSize: 32,
+    color: '#fff',
+    fontWeight: '300',
   },
 });
