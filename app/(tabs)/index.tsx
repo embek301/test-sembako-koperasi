@@ -1,3 +1,4 @@
+// app/(tabs)/index.tsx - UPDATED WITH ROLE-BASED CONTENT
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -10,7 +11,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { categoryAPI, productAPI } from '../../src/api/apiClient';
+import { Ionicons } from '@expo/vector-icons';
+import { categoryAPI, productAPI, merchantAPI } from '../../src/api/apiClient';
+import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SIZES } from '../../src/utils/constants';
 import { formatPrice } from '../../src/utils/formatters';
 
@@ -31,28 +34,39 @@ interface Product {
 }
 
 export default function HomeScreen() {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [merchantStats, setMerchantStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user]);
 
   const loadData = async () => {
     try {
-      const [categoriesRes, productsRes] = await Promise.all([
-        categoryAPI.getAll(),
-        productAPI.getFeatured(),
-      ]);
+      if (user?.role === 'merchant') {
+        // Load merchant dashboard data
+        const response = await merchantAPI.getProfile();
+        if (response.data.success) {
+          setMerchantStats(response.data.data.stats);
+        }
+      } else {
+        // Load member data
+        const [categoriesRes, productsRes] = await Promise.all([
+          categoryAPI.getAll(),
+          productAPI.getFeatured(),
+        ]);
 
-      if (categoriesRes.data.success) {
-        setCategories(categoriesRes.data.data);
-      }
+        if (categoriesRes.data.success) {
+          setCategories(categoriesRes.data.data);
+        }
 
-      if (productsRes.data.success) {
-        setFeaturedProducts(productsRes.data.data);
+        if (productsRes.data.success) {
+          setFeaturedProducts(productsRes.data.data);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -67,13 +81,171 @@ export default function HomeScreen() {
     loadData();
   };
 
+  // MERCHANT DASHBOARD
+  if (user?.role === 'merchant') {
+    const menuItems = [
+      {
+        icon: 'cube',
+        title: 'My Products',
+        description: `${merchantStats?.total_products || 0} products`,
+        color: '#4CAF50',
+        onPress: () => router.push('/(tabs)/products' as any),
+      },
+      {
+        icon: 'card',
+        title: 'Payments',
+        description: 'View payment history',
+        color: '#2196F3',
+        onPress: () => router.push('/merchant/payments' as any),
+      },
+      {
+        icon: 'wallet',
+        title: 'Balance',
+        description: formatPrice(merchantStats?.pending_balance || 0),
+        color: '#FF9800',
+        onPress: () => router.push('/merchant/balance' as any),
+      },
+      {
+        icon: 'settings',
+        title: 'Store Settings',
+        description: 'Manage store',
+        color: '#9E9E9E',
+        onPress: () => router.push('/merchant/settings' as any),
+      },
+    ];
+
+    return (
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        {/* Merchant Header */}
+        <View style={styles.merchantHeader}>
+          <View>
+            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.storeName}>{user.store_name || 'Merchant'}</Text>
+          </View>
+          {!user.is_verified && (
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>⏳ Pending</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Ionicons name="trending-up" size={24} color="#4CAF50" />
+            </View>
+            <Text style={styles.statValue}>
+              {formatPrice(merchantStats?.total_sales || 0)}
+            </Text>
+            <Text style={styles.statLabel}>Total Sales</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="cash" size={24} color="#2196F3" />
+            </View>
+            <Text style={styles.statValue}>
+              {formatPrice(merchantStats?.total_earnings || 0)}
+            </Text>
+            <Text style={styles.statLabel}>Earnings</Text>
+          </View>
+        </View>
+
+        {/* Menu Items */}
+        <View style={styles.menuContainer}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.menuItem}
+              onPress={item.onPress}>
+              <View style={[styles.menuIcon, { backgroundColor: item.color + '20' }]}>
+                <Ionicons name={item.icon as any} size={24} color={item.color} />
+              </View>
+              <View style={styles.menuInfo}>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuDescription}>{item.description}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={COLORS.lightGray} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {!user.is_verified && (
+          <View style={styles.infoBanner}>
+            <Ionicons name="information-circle" size={24} color="#FF9800" />
+            <Text style={styles.infoBannerText}>
+              Your account is pending verification. Some features are limited.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // ADMIN DASHBOARD
+  if (user?.role === 'admin') {
+    return (
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <View style={styles.adminHeader}>
+          <Text style={styles.adminTitle}>Admin Dashboard</Text>
+        </View>
+        
+        <View style={styles.adminMenuContainer}>
+          <TouchableOpacity style={styles.adminMenuItem}>
+            <Ionicons name="people" size={32} color="#4CAF50" />
+            <Text style={styles.adminMenuText}>Manage Users</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.adminMenuItem}>
+            <Ionicons name="storefront" size={32} color="#2196F3" />
+            <Text style={styles.adminMenuText}>Merchants</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.adminMenuItem}>
+            <Ionicons name="cube" size={32} color="#FF9800" />
+            <Text style={styles.adminMenuText}>Products</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.adminMenuItem}>
+            <Ionicons name="receipt" size={32} color="#9C27B0" />
+            <Text style={styles.adminMenuText}>Orders</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // DRIVER DASHBOARD
+  if (user?.role === 'driver') {
+    return (
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        <View style={styles.driverHeader}>
+          <Ionicons name="car" size={48} color="#fff" />
+          <Text style={styles.driverTitle}>Active Deliveries</Text>
+        </View>
+        
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No active deliveries</Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // MEMBER HOME (Default)
   const renderCategory = ({ item }: { item: Category }) => (
     <TouchableOpacity
       style={styles.categoryCard}
       onPress={() => router.push({
-  pathname: '/product/list',
-  params: { categoryId: item.id }
-})}>
+        pathname: '/product/list',
+        params: { categoryId: item.id }
+      })}>
       <View style={styles.categoryIcon}>
         <Text style={styles.categoryEmoji}>{item.icon || '🛒'}</Text>
       </View>
@@ -168,13 +340,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingTop: SIZES.padding *2,
+    paddingTop: SIZES.padding * 2,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
+  // Member styles (existing)
   searchBar: {
     backgroundColor: '#fff',
     margin: SIZES.margin,
@@ -312,5 +486,180 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 12,
     color: '#FF9800',
+  },
+
+  // Merchant styles
+  merchantHeader: {
+    backgroundColor: COLORS.primary,
+    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  greeting: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  storeName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 5,
+  },
+  statusBadge: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    padding: 10,
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.gray,
+  },
+  menuContainer: {
+    backgroundColor: '#fff',
+    margin: 15,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  menuInfo: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 3,
+  },
+  menuDescription: {
+    fontSize: 13,
+    color: COLORS.gray,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF3E0',
+    margin: 15,
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'flex-start',
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.text,
+    marginLeft: 10,
+    lineHeight: 18,
+  },
+
+  // Admin styles
+  adminHeader: {
+    backgroundColor: COLORS.primary,
+    padding: 30,
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  adminTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  adminMenuContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 15,
+    gap: 15,
+  },
+  adminMenuItem: {
+    width: '47%',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  adminMenuText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginTop: 10,
+  },
+
+  // Driver styles
+  driverHeader: {
+    backgroundColor: COLORS.primary,
+    padding: 30,
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  driverTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 10,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.gray,
   },
 });

@@ -13,6 +13,9 @@ interface User {
   // Merchant-specific properties
   store_name?: string;
   is_verified?: boolean;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_name?: string;
 }
 
 interface AuthContextType {

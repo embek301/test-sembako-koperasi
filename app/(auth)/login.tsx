@@ -1,3 +1,4 @@
+// app/(auth)/login.tsx - UPDATED
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/utils/constants';
 
@@ -42,6 +44,10 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
       <View style={styles.content}>
+        <View style={styles.logoContainer}>
+          <Ionicons name="storefront" size={80} color={COLORS.primary} />
+        </View>
+        
         <Text style={styles.title}>Sembako Koperasi</Text>
         <Text style={styles.subtitle}>Login to your account</Text>
 
@@ -75,11 +81,42 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/(auth)/regsiter')}>
-          <Text style={styles.linkText}>
-            Don't have an account? Register
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity 
+          style={styles.secondaryButton}
+          onPress={() => router.push('/(auth)/regsiter')}>
+          <Ionicons name="person-add" size={20} color={COLORS.primary} />
+          <Text style={styles.secondaryButtonText}>
+            Register as Customer
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.merchantButton}
+          onPress={() => router.push('/(auth)/merchant-register' as any)}>
+          <Ionicons name="storefront" size={20} color="#fff" />
+          <Text style={styles.merchantButtonText}>
+            Register as Merchant
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>By continuing, you agree to our</Text>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerText}> • </Text>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -94,6 +131,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,
@@ -128,10 +169,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  linkText: {
-    color: COLORS.primary,
-    textAlign: 'center',
-    marginTop: 20,
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 25,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#666',
     fontSize: 14,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  merchantButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+  },
+  merchantButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    marginTop: 5,
+  },
+  footerLink: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 });
