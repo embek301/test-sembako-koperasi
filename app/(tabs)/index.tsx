@@ -1,4 +1,4 @@
-// app/(tabs)/index.tsx - UPDATED WITH ROLE-BASED CONTENT
+// app/(tabs)/index.tsx - FIXED PRODUCT TYPE
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,6 +23,15 @@ interface Category {
   icon: string;
 }
 
+// ✅ Add Merchant interface
+interface Merchant {
+  id: number;
+  name: string;
+  store_name?: string;
+  is_verified: boolean;
+}
+
+// ✅ Update Product interface
 interface Product {
   id: number;
   name: string;
@@ -31,6 +40,7 @@ interface Product {
   unit: string;
   stock: number;
   average_rating: number;
+  merchant?: Merchant; // ✅ Add merchant property
 }
 
 export default function HomeScreen() {
@@ -48,13 +58,11 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       if (user?.role === 'merchant') {
-        // Load merchant dashboard data
         const response = await merchantAPI.getProfile();
         if (response.data.success) {
           setMerchantStats(response.data.data.stats);
         }
       } else {
-        // Load member data
         const [categoriesRes, productsRes] = await Promise.all([
           categoryAPI.getAll(),
           productAPI.getFeatured(),
@@ -118,7 +126,6 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.container}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {/* Merchant Header */}
         <View style={styles.merchantHeader}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
@@ -131,7 +138,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: '#E8F5E9' }]}>
@@ -154,7 +160,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Menu Items */}
         <View style={styles.menuContainer}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
@@ -263,6 +268,19 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.productContent}>
+        {/* ✅ MERCHANT INFO */}
+        {product.merchant && (
+          <View style={styles.merchantInfo}>
+            <Ionicons name="storefront" size={12} color={COLORS.primary} />
+            <Text style={styles.merchantName} numberOfLines={1}>
+              {product.merchant.store_name || product.merchant.name}
+            </Text>
+            {product.merchant.is_verified && (
+              <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
+            )}
+          </View>
+        )}
+
         <Text style={styles.productName} numberOfLines={2}>
           {product.name}
         </Text>
@@ -299,14 +317,12 @@ export default function HomeScreen() {
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      {/* Search Bar */}
       <TouchableOpacity
         style={styles.searchBar}
         onPress={() => router.push('/product/list')}>
         <Text style={styles.searchText}>Search products...</Text>
       </TouchableOpacity>
 
-      {/* Categories */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Categories</Text>
         <FlatList
@@ -319,7 +335,6 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Featured Products */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Featured Products</Text>
@@ -347,8 +362,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  // Member styles (existing)
   searchBar: {
     backgroundColor: '#fff',
     margin: SIZES.margin,
@@ -445,6 +458,18 @@ const styles = StyleSheet.create({
   },
   productContent: {
     padding: 10,
+  },
+  // ✅ MERCHANT INFO STYLES
+  merchantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 4,
+  },
+  merchantName: {
+    fontSize: 10,
+    color: COLORS.gray,
+    flex: 1,
   },
   productName: {
     fontSize: 14,

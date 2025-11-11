@@ -197,6 +197,11 @@ export const merchantAPI = {
     apiClient.put(`/merchant/products/${id}`, data),
   deleteProduct: (id: number) => apiClient.delete(`/merchant/products/${id}`),
 
+ // ✅ Order Management
+  getOrders: (params?: any) => apiClient.get("/merchant/orders", { params }),
+  approveOrder: (id: number) => apiClient.post(`/merchant/orders/${id}/approve`),
+  rejectOrder: (id: number, data: any) => apiClient.post(`/merchant/orders/${id}/reject`, data),
+
   // Financial
   getPayments: (params?: any) =>
     apiClient.get("/merchant/payments", { params }),
@@ -231,4 +236,6 @@ export const adminMerchantAPI = {
   // Statistics
   getStatistics: () => apiClient.get("/admin/merchants/statistics"),
 };
+
+
 export default apiClient;
