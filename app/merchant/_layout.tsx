@@ -24,6 +24,12 @@ export default function MerchantLayout() {
         }} 
       />
       <Stack.Screen 
+        name="orders" 
+        options={{ 
+          headerShown: false, // Has its own nested layout
+        }} 
+      />
+      <Stack.Screen 
         name="products" 
         options={{ 
           title: 'My Products',

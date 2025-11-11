@@ -89,7 +89,7 @@ export default function LoginScreen() {
 
         <TouchableOpacity 
           style={styles.secondaryButton}
-          onPress={() => router.push('/(auth)/regsiter')}>
+          onPress={() => router.push('/(auth)/register')}>
           <Ionicons name="person-add" size={20} color={COLORS.primary} />
           <Text style={styles.secondaryButtonText}>
             Register as Customer
