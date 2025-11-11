@@ -93,6 +93,13 @@ export default function HomeScreen() {
   if (user?.role === 'merchant') {
     const menuItems = [
       {
+        icon: 'receipt',
+        title: 'Orders',
+        description: `${merchantStats?.pending_orders || 0} pending`,
+        color: '#E91E63',
+        onPress: () => router.push('/merchant/orders' as any),
+      },
+      {
         icon: 'cube',
         title: 'My Products',
         description: `${merchantStats?.total_products || 0} products`,

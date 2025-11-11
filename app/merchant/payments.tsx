@@ -23,6 +23,8 @@ interface Payment {
   order: {
     order_number: string;
   };
+    transaction_id: string;
+    created_at: string;
 }
 
 export default function MerchantPaymentsScreen() {
@@ -62,12 +64,14 @@ export default function MerchantPaymentsScreen() {
     return colors[status] || COLORS.gray;
   };
 
-  const renderPayment = ({ item }: { item: Payment }) => (
+ const renderPayment = ({ item }: { item: Payment }) => (
     <View style={styles.paymentCard}>
       <View style={styles.paymentHeader}>
         <View>
-          <Text style={styles.orderNumber}>Order #{item.order?.order_number}</Text>
-          <Text style={styles.paymentDate}>{formatDate(item.paid_at)}</Text>
+          <Text style={styles.orderNumber}>Order #{item.order?.order_number || 'N/A'}</Text>
+          <Text style={styles.paymentDate}>
+            {item.paid_at ? formatDate(item.paid_at) : formatDate(item.created_at || new Date().toISOString())}
+          </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
@@ -77,12 +81,18 @@ export default function MerchantPaymentsScreen() {
       <View style={styles.paymentDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount:</Text>
-          <Text style={styles.amount}>{formatPrice(item.amount)}</Text>
+          <Text style={styles.amount}>{formatPrice(item.amount || 0)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Gateway:</Text>
-          <Text style={styles.detailValue}>{item.payment_gateway}</Text>
+          <Text style={styles.detailValue}>{item.payment_gateway || 'N/A'}</Text>
         </View>
+        {item.transaction_id && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Transaction ID:</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{item.transaction_id}</Text>
+          </View>
+        )}
       </View>
     </View>
   );

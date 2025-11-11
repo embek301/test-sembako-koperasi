@@ -65,7 +65,7 @@ export default function TabsLayout() {
   }
 
   // MERCHANT TABS
-  if (user.role === 'merchant') {
+   if (user.role === 'merchant') {
     return (
       <Tabs
         screenOptions={{
@@ -92,15 +92,6 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="orders"
-          options={{
-            title: 'Orders',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="receipt" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="products"
           options={{
             title: 'Products',
@@ -118,11 +109,17 @@ export default function TabsLayout() {
             ),
           }}
         />
-        {/* Hide cart for merchants */}
+        {/* Hide orders and cart tabs for merchants */}
+        <Tabs.Screen
+          name="orders"
+          options={{
+            href: null, // This hides the tab
+          }}
+        />
         <Tabs.Screen
           name="cart"
           options={{
-            href: null, // This hides the tab
+            href: null,
           }}
         />
       </Tabs>

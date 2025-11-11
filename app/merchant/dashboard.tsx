@@ -43,9 +43,16 @@ export default function MerchantDashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadDashboard();
-  };
+  };    
 
-  const menuItems = [
+ const menuItems = [
+    {
+      icon: 'receipt',
+      title: 'Orders',
+      description: `${stats?.pending_orders || 0} pending`,
+      color: '#E91E63',
+      onPress: () => router.push('/merchant/orders' as any),
+    },
     {
       icon: 'cube',
       title: 'My Products',

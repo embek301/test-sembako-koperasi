@@ -253,7 +253,12 @@ export default function CheckoutScreen() {
 
       if (orderResponse.data.success) {
         const order = orderResponse.data.data;
-        await sendOrderNotification(order.order_number, 'pending');
+        
+        // Send notification to CUSTOMER
+        await sendOrderNotification(order.order_number, 'pending', 'member');
+        
+        // ✅ TODO: Send notification to MERCHANT via backend
+        // Backend should handle this in OrderController@store
         
         try {
           await cartAPI.clearCart();
